@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Slice the borderless ripeness sheet into aligned PNG frames (no border stripping)."""
+"""Slice the borderless ripeness sheet into pixel-locked aligned frames."""
 from __future__ import annotations
 
 import argparse
@@ -15,6 +15,8 @@ CELL_W = 1375
 ROW_H = 739
 PAPER_THR = 200
 CANVAS_PAD = 8
+
+
 def sheet_size(sheet: Image.Image) -> tuple[int, int]:
     return sheet.size[0], sheet.size[1]
 
@@ -25,8 +27,6 @@ def cell_box(idx: int, sheet_w: int, sheet_h: int) -> tuple[int, int, int, int]:
     x1 = x0 + CELL_W
     y0 = row * ROW_H
     y1 = sheet_h if row == ROW_COUNT - 1 else y0 + ROW_H
-    if x1 > sheet_w or y1 > sheet_h:
-        raise ValueError(f"Cell {idx} box {(x0, y0, x1, y1)} exceeds sheet {sheet_w}x{sheet_h}")
     return x0, y0, x1, y1
 
 
@@ -43,38 +43,48 @@ def clear_paper(arr: np.ndarray) -> np.ndarray:
     return out
 
 
-def _yellow_mask(rgb: np.ndarray, alpha: np.ndarray) -> np.ndarray:
-    return (
+def fruit_mask(rgb: np.ndarray, alpha: np.ndarray) -> np.ndarray:
+    yellow = (
         (rgb[..., 0] > 70)
         & (rgb[..., 1] > 70)
         & (rgb[..., 2] < rgb[..., 0])
         & alpha
     )
+    dark = alpha & (rgb.max(axis=2) < 55)
+    return yellow | dark
 
 
-def registration_point(arr: np.ndarray) -> tuple[float, float]:
-    """Frame-0 anchor: yellow centroid when present, else opaque ink centroid."""
+def fruit_metrics(arr: np.ndarray) -> dict[str, float | int]:
     rgb = arr[..., :3]
-    lum = rgb.max(axis=2)
     alpha = arr[..., 3] > 8
-    yellow = _yellow_mask(rgb, alpha)
-    mask = yellow if yellow.sum() > 500 else (lum > 50) & alpha
+    mask = fruit_mask(rgb, alpha)
     ys, xs = np.where(mask)
     if xs.size == 0:
         ys, xs = np.where(alpha)
-    return float(xs.mean()), float(ys.mean())
+    x0, x1 = int(xs.min()), int(xs.max())
+    y0, y1 = int(ys.min()), int(ys.max())
+    return {
+        "cx": float(xs.mean()),
+        "cy": float(ys.mean()),
+        "x0": x0,
+        "y0": y0,
+        "x1": x1,
+        "y1": y1,
+    }
 
 
-def measure_registration(canvas: np.ndarray) -> tuple[float, float]:
-    return registration_point(canvas)
-
-
-def _paste_origin(anchor: tuple[float, float], ref_anchor: tuple[float, float]) -> tuple[int, int]:
-    ref_x, ref_y = ref_anchor
-    ax, ay = anchor
-    px = int(round(CANVAS_PAD + (ref_x - ax)))
-    py = int(round(CANVAS_PAD + (ref_y - ay)))
-    return px, py
+def compose_canvas(crop: np.ndarray, px: int, py: int, cw: int, ch: int) -> np.ndarray:
+    canvas = np.zeros((ch, cw, 4), dtype=np.uint8)
+    h, w = crop.shape[:2]
+    x0 = max(0, px)
+    y0 = max(0, py)
+    x1 = min(cw, px + w)
+    y1 = min(ch, py + h)
+    if x1 <= x0 or y1 <= y0:
+        return canvas
+    sx0, sy0 = x0 - px, y0 - py
+    canvas[y0:y1, x0:x1] = crop[sy0 : sy0 + (y1 - y0), sx0 : sx0 + (x1 - x0)]
+    return canvas
 
 
 def process_frames(sheet_path: Path, out_dir: Path, *, audit: bool = False) -> dict:
@@ -83,59 +93,65 @@ def process_frames(sheet_path: Path, out_dir: Path, *, audit: bool = False) -> d
     if sheet_w != COLS * CELL_W:
         raise ValueError(f"Expected sheet width {COLS * CELL_W}, got {sheet_w}")
 
-    cells: list[np.ndarray] = []
-    anchors: list[tuple[float, float]] = []
-    placements: list[tuple[np.ndarray, int, int, int, int]] = []
+    cells = [clear_paper(cell_array(sheet, i)) for i in range(FRAME_COUNT)]
+    ref0 = fruit_metrics(cells[0])
+    anchor_tl = (int(ref0["x0"]), int(ref0["y0"]))
 
-    for i in range(FRAME_COUNT):
-        crop = clear_paper(cell_array(sheet, i))
-        anchor = registration_point(crop)
-        cells.append(crop)
-        anchors.append(anchor)
-
-    ref_anchor = anchors[0]
-    for crop, anchor in zip(cells, anchors):
-        px, py = _paste_origin(anchor, ref_anchor)
+    rough_places: list[tuple[int, int, int, int]] = []
+    for crop in cells:
+        m = fruit_metrics(crop)
+        px = CANVAS_PAD + anchor_tl[0] - int(m["x0"])
+        py = CANVAS_PAD + anchor_tl[1] - int(m["y0"])
         h, w = crop.shape[:2]
-        placements.append((crop, px, py, w, h))
+        rough_places.append((px, py, w, h))
 
-    min_px = min(px for _, px, _, _, _ in placements)
-    min_py = min(py for _, _, py, _, _ in placements)
-    max_rx = max(px + w for _, px, _, w, _ in placements)
-    max_by = max(py + h for _, _, py, _, h in placements)
+    min_px = min(px for px, _, _, _ in rough_places)
+    min_py = min(py for _, py, _, _ in rough_places)
+    max_rx = max(px + w for px, _, w, _ in rough_places)
+    max_by = max(py + h for _, py, _, h in rough_places)
     canvas_w = max_rx - min_px + CANVAS_PAD
     canvas_h = max_by - min_py + CANVAS_PAD
 
-    drift: list[tuple[int, float, float]] = []
-    ref_centroid: tuple[float, float] | None = None
+    target_tl = (
+        CANVAS_PAD + anchor_tl[0] - min_px + CANVAS_PAD,
+        CANVAS_PAD + anchor_tl[1] - min_py + CANVAS_PAD,
+    )
+    ref_canvas = compose_canvas(
+        cells[0],
+        rough_places[0][0] - min_px + CANVAS_PAD,
+        rough_places[0][1] - min_py + CANVAS_PAD,
+        canvas_w,
+        canvas_h,
+    )
+    ref_cm = fruit_metrics(ref_canvas)
+    target_cx, target_cy = ref_cm["cx"], ref_cm["cy"]
+    target_tl = (int(ref_cm["x0"]), int(ref_cm["y0"]))
+
+    drift_bbox: list[tuple[int, int, int]] = []
+    drift_centroid: list[tuple[int, float, float]] = []
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    for i, (crop, px, py, w, h) in enumerate(placements):
+    for i, (crop, (px, py, _, _)) in enumerate(zip(cells, rough_places, strict=True)):
         sx = px - min_px + CANVAS_PAD
         sy = py - min_py + CANVAS_PAD
-        canvas = np.zeros((canvas_h, canvas_w, 4), dtype=np.uint8)
-        canvas[sy : sy + h, sx : sx + w] = crop
+        canvas = compose_canvas(crop, sx, sy, canvas_w, canvas_h)
         Image.fromarray(canvas).save(out_dir / f"banana-{i:02d}.png", optimize=True)
-        cx, cy = measure_registration(canvas)
-        if i == 0:
-            ref_centroid = (cx, cy)
-            drift.append((0, 0.0, 0.0))
-        else:
-            assert ref_centroid is not None
-            drift.append((i, cx - ref_centroid[0], cy - ref_centroid[1]))
+        cm = fruit_metrics(canvas)
+        drift_bbox.append((i, int(cm["x0"]) - target_tl[0], int(cm["y0"]) - target_tl[1]))
+        drift_centroid.append((i, cm["cx"] - target_cx, cm["cy"] - target_cy))
 
     meta: dict = {
         "sheet": str(sheet_path),
-        "sheet_w": sheet_w,
-        "sheet_h": sheet_h,
         "canvas_w": canvas_w,
         "canvas_h": canvas_h,
-        "anchor": ref_anchor,
+        "fruit_bbox_tl": target_tl,
+        "fruit_centroid": (target_cx, target_cy),
     }
     if audit:
-        meta["anchor_drift_px"] = drift
-        meta["max_drift"] = max((abs(dx) + abs(dy) for _, dx, dy in drift), default=0.0)
-        meta["cell_sizes"] = sorted({(c.shape[1], c.shape[0]) for c in cells})
+        meta["bbox_tl_drift"] = drift_bbox
+        meta["centroid_drift"] = drift_centroid
+        meta["max_bbox_drift"] = max((abs(x) + abs(y) for _, x, y in drift_bbox), default=0)
+        meta["max_centroid_drift"] = max((abs(x) + abs(y) for _, x, y in drift_centroid), default=0.0)
     return meta
 
 
@@ -154,8 +170,7 @@ def main() -> None:
     args = parser.parse_args()
     if not args.sheet.is_file():
         raise SystemExit(f"Sheet not found: {args.sheet}")
-    meta = process_frames(args.sheet, args.out, audit=args.audit)
-    print(meta)
+    print(process_frames(args.sheet, args.out, audit=args.audit))
 
 
 if __name__ == "__main__":
