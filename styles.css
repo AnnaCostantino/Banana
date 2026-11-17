@@ -1,0 +1,278 @@
+/* Apfel Grotezk — drop-in OTF already wired via @font-face */
+@font-face {
+  font-family: "Apfel Grotezk";
+  src: url("./fonts/ApfelGrotezk-Mittel.otf") format("opentype");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --panel: #1055a8;
+  --panel-ink: #ffffff;
+  --page: #ffffff;
+  --tray: #ffffff;
+  --font-ui: "Apfel Grotezk", "Avenir Next", "Futura", "Trebuchet MS", sans-serif;
+  --radius-panel: 28px;
+  --radius-tray: 18px;
+  --shadow-soft: 0 18px 40px rgba(16, 85, 168, 0.12);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--page);
+  color: #111;
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  min-height: 100vh;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.app {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  gap: clamp(1rem, 3vw, 2.5rem);
+  min-height: 100vh;
+  padding: clamp(1rem, 2.5vw, 2rem);
+  align-items: stretch;
+}
+
+.stage {
+  display: grid;
+  place-items: center;
+  min-height: 0;
+}
+
+.canvas {
+  position: relative;
+  width: min(100%, 980px);
+  aspect-ratio: 16 / 10;
+  display: grid;
+  place-items: center;
+  user-select: none;
+  touch-action: none;
+}
+
+.banana {
+  width: min(92%, 900px);
+  height: auto;
+  max-height: 78vh;
+  object-fit: contain;
+  pointer-events: none;
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.08));
+  animation: banana-in 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.sticker-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+.placed-sticker {
+  position: absolute;
+  width: clamp(72px, 12vw, 120px);
+  height: auto;
+  cursor: grab;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.18));
+  transition: filter 160ms ease;
+  user-select: none;
+  -webkit-user-drag: none;
+  animation: sticker-pop 280ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
+}
+
+.placed-sticker:active,
+.placed-sticker.is-dragging {
+  cursor: grabbing;
+  filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.28));
+  z-index: 5;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-self: start;
+  position: sticky;
+  top: clamp(1rem, 2.5vw, 2rem);
+  animation: panel-in 600ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.bruise {
+  display: grid;
+  grid-template-columns: 48px 1fr 48px;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 64px;
+  padding: 0.45rem 0.55rem;
+  background: var(--panel);
+  color: var(--panel-ink);
+  border-radius: 999px;
+  box-shadow: var(--shadow-soft);
+}
+
+.bruise-label {
+  text-align: center;
+  font-size: clamp(1.35rem, 2vw, 1.75rem);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+.bruise-btn {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--panel-ink);
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.bruise-btn span {
+  font-size: 1.85rem;
+  line-height: 1;
+  font-weight: 500;
+}
+
+.bruise-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.bruise-btn:active {
+  transform: scale(0.94);
+}
+
+.bruise-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.stickers-panel {
+  background: var(--panel);
+  color: var(--panel-ink);
+  border-radius: var(--radius-panel);
+  padding: 1.1rem 1rem 1rem;
+  box-shadow: var(--shadow-soft);
+}
+
+.stickers-title {
+  margin: 0 0 0.85rem;
+  text-align: center;
+  font-size: clamp(1.45rem, 2.2vw, 1.9rem);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.stickers-tray {
+  background: var(--tray);
+  border-radius: var(--radius-tray);
+  padding: 0.85rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem 0.65rem;
+  align-items: center;
+  justify-items: center;
+  min-height: 320px;
+}
+
+.sticker-thumb {
+  width: 100%;
+  max-width: 112px;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  cursor: grab;
+  transition: transform 180ms ease, background 180ms ease;
+}
+
+.sticker-thumb:hover {
+  transform: scale(1.05);
+  background: rgba(16, 85, 168, 0.06);
+}
+
+.sticker-thumb:active {
+  cursor: grabbing;
+  transform: scale(0.97);
+}
+
+.sticker-thumb img {
+  width: 84%;
+  height: 84%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+@keyframes banana-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes sticker-pop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@media (max-width: 860px) {
+  .app {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(42vh, 1fr) auto;
+  }
+
+  .panel {
+    position: static;
+    width: min(100%, 420px);
+    margin-inline: auto;
+  }
+
+  .canvas {
+    aspect-ratio: 4 / 3;
+  }
+}

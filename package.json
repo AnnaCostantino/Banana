@@ -1,0 +1,10 @@
+{
+  "name": "banana-editor",
+  "version": "1.0.0",
+  "private": true,
+  "description": "One-page banana ripeness + sticker editor",
+  "scripts": {
+    "start": "python3 -m http.server 4173",
+    "serve": "npx --yes serve . -l 4173"
+  }
+}

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Banana Editor</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <section class="stage" aria-label="Banana canvas">
+        <div class="canvas" id="canvas">
+          <img
+            id="banana"
+            class="banana"
+            alt="Banana"
+            draggable="false"
+            src="./frames/banana-00.png"
+          />
+          <div id="sticker-layer" class="sticker-layer"></div>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="Controls">
+        <div class="bruise" role="group" aria-label="Bruise control">
+          <button type="button" class="bruise-btn" id="bruise-minus" aria-label="Less bruise">
+            <span aria-hidden="true">−</span>
+          </button>
+          <span class="bruise-label">Bruise</span>
+          <button type="button" class="bruise-btn" id="bruise-plus" aria-label="More bruise">
+            <span aria-hidden="true">+</span>
+          </button>
+        </div>
+
+        <section class="stickers-panel">
+          <h1 class="stickers-title">Stickers</h1>
+          <div class="stickers-tray" id="sticker-library" role="list"></div>
+        </section>
+      </aside>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
