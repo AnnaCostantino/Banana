@@ -102,6 +102,11 @@ button {
   --sticker-skew: 0deg;
 }
 
+/* ~10% larger on-banana than default placed size (on top of PR #3 global scale). */
+.placed-sticker.placed-sticker--scale-boost {
+  width: clamp(52.8px, 8.47vw, 86.9px);
+}
+
 .placed-sticker:focus {
   outline: none;
 }

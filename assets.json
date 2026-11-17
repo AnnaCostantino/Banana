@@ -37,9 +37,9 @@
     { "id": "chiquita-ecuador", "src": "stickers/chiquita-ecuador.png", "label": "Chiquita Ecuador" },
     { "id": "dole-colombia", "src": "stickers/dole-colombia.png", "label": "Dole Colombia" },
     { "id": "fyffes-jamaica", "src": "stickers/fyffes-jamaica.png", "label": "Fyffes Jamaica" },
-    { "id": "karla-mexico", "src": "stickers/karla-mexico.png", "label": "Karla Bananas Mexico" },
-    { "id": "del-monte-basketball", "src": "stickers/del-monte-basketball.png", "label": "Del Monte Basketball" },
+    { "id": "karla-mexico", "src": "stickers/karla-mexico.png", "label": "Karla Bananas Mexico", "placeScaleBoost": 1.1 },
+    { "id": "del-monte-basketball", "src": "stickers/del-monte-basketball.png", "label": "Del Monte Basketball", "placeScaleBoost": 1.1 },
     { "id": "dole-sunburst", "src": "stickers/dole-sunburst.png", "label": "Dole Sunburst" },
-    { "id": "chiquita-holidays", "src": "stickers/chiquita-holidays.png", "label": "Chiquita Holidays" }
+    { "id": "chiquita-holidays", "src": "stickers/chiquita-holidays.png", "label": "Chiquita Holidays", "placeScaleBoost": 1.1 }
   ]
 }
