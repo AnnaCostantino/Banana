@@ -190,18 +190,18 @@ function renderLibrary(stickers) {
           dragged = true;
           ghost = button.cloneNode(true);
           ghost.style.position = "fixed";
-          ghost.style.left = `${ev.clientX - 28}px`;
-          ghost.style.top = `${ev.clientY - 28}px`;
-          ghost.style.width = "56px";
-          ghost.style.height = "56px";
+          ghost.style.left = `${ev.clientX - 31}px`;
+          ghost.style.top = `${ev.clientY - 31}px`;
+          ghost.style.width = "62px";
+          ghost.style.height = "62px";
           ghost.style.opacity = "0.9";
           ghost.style.pointerEvents = "none";
           ghost.style.zIndex = "1000";
           document.body.appendChild(ghost);
         }
         if (ghost) {
-          ghost.style.left = `${ev.clientX - 28}px`;
-          ghost.style.top = `${ev.clientY - 28}px`;
+          ghost.style.left = `${ev.clientX - 31}px`;
+          ghost.style.top = `${ev.clientY - 31}px`;
         }
       };
 
