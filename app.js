@@ -10,6 +10,7 @@ const plusBtn = document.getElementById("bruise-plus");
 let bruiseIndex = 0;
 let assets = { frames: [], stickers: [] };
 let dragState = null;
+let selectedSticker = null;
 
 function frameSrc(index) {
   return assets.frames[index] || `./frames/banana-${String(index).padStart(2, "0")}.png`;
@@ -29,23 +30,67 @@ function preloadFrames() {
   }
 }
 
+function selectSticker(el) {
+  if (selectedSticker === el) return;
+  if (selectedSticker) selectedSticker.classList.remove("is-selected");
+  selectedSticker = el;
+  if (selectedSticker) {
+    selectedSticker.classList.add("is-selected");
+    selectedSticker.focus({ preventScroll: true });
+  }
+}
+
+function removeSticker(el) {
+  if (!el) return;
+  if (selectedSticker === el) selectedSticker = null;
+  if (dragState?.el === el) dragState = null;
+  el.remove();
+}
+
 function placeSticker(src, clientX, clientY) {
   const rect = canvasEl.getBoundingClientRect();
   const x = ((clientX - rect.left) / rect.width) * 100;
   const y = ((clientY - rect.top) / rect.height) * 100;
+  const left = clamp(x, 6, 94);
+  const top = clamp(y, 8, 92);
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "placed-sticker";
+  wrapper.tabIndex = 0;
+  wrapper.setAttribute("role", "button");
+  wrapper.setAttribute("aria-label", "Placed sticker. Press Delete to remove.");
+  wrapper.style.left = `${left}%`;
+  wrapper.style.top = `${top}%`;
+  wrapper.dataset.x = String(left);
+  wrapper.dataset.y = String(top);
 
   const img = document.createElement("img");
-  img.className = "placed-sticker";
+  img.className = "placed-sticker-img";
   img.src = src;
   img.alt = "Placed sticker";
   img.draggable = false;
-  img.style.left = `${clamp(x, 6, 94)}%`;
-  img.style.top = `${clamp(y, 8, 92)}%`;
-  img.dataset.x = String(clamp(x, 6, 94));
-  img.dataset.y = String(clamp(y, 8, 92));
-  layerEl.appendChild(img);
-  bindPlacedDrag(img);
-  return img;
+
+  const removeBtn = document.createElement("button");
+  removeBtn.type = "button";
+  removeBtn.className = "sticker-remove";
+  removeBtn.setAttribute("aria-label", "Remove sticker");
+  removeBtn.innerHTML = "<span aria-hidden=\"true\">×</span>";
+  removeBtn.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  });
+  removeBtn.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    removeSticker(wrapper);
+  });
+
+  wrapper.appendChild(img);
+  wrapper.appendChild(removeBtn);
+  layerEl.appendChild(wrapper);
+  bindPlacedDrag(wrapper);
+  selectSticker(wrapper);
+  return wrapper;
 }
 
 function clamp(value, min, max) {
@@ -55,17 +100,25 @@ function clamp(value, min, max) {
 function bindPlacedDrag(el) {
   const onPointerDown = (event) => {
     if (event.button != null && event.button !== 0) return;
+    if (event.target.closest(".sticker-remove")) return;
     event.preventDefault();
+    selectSticker(el);
     el.setPointerCapture(event.pointerId);
     el.classList.add("is-dragging");
     dragState = {
       el,
       pointerId: event.pointerId,
+      moved: false,
+      startX: event.clientX,
+      startY: event.clientY,
     };
   };
 
   const onPointerMove = (event) => {
     if (!dragState || dragState.el !== el || dragState.pointerId !== event.pointerId) return;
+    const dx = event.clientX - dragState.startX;
+    const dy = event.clientY - dragState.startY;
+    if (!dragState.moved && dx * dx + dy * dy > 9) dragState.moved = true;
     const rect = canvasEl.getBoundingClientRect();
     const x = clamp(((event.clientX - rect.left) / rect.width) * 100, 4, 96);
     const y = clamp(((event.clientY - rect.top) / rect.height) * 100, 4, 96);
@@ -169,6 +222,25 @@ function renderLibrary(stickers) {
 
 minusBtn.addEventListener("click", () => setBruise(bruiseIndex - 1));
 plusBtn.addEventListener("click", () => setBruise(bruiseIndex + 1));
+
+canvasEl.addEventListener("pointerdown", (event) => {
+  if (event.target === canvasEl || event.target === bananaEl || event.target === layerEl) {
+    selectSticker(null);
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (!selectedSticker) return;
+  if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+  if (event.key === "Delete" || event.key === "Backspace") {
+    event.preventDefault();
+    removeSticker(selectedSticker);
+  }
+  if (event.key === "Escape") {
+    event.preventDefault();
+    selectSticker(null);
+  }
+});
 
 async function boot() {
   try {
