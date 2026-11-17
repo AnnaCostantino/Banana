@@ -10,15 +10,18 @@
     <main class="app">
       <section class="stage" aria-label="Banana canvas">
         <div class="canvas" id="canvas">
-          <img
-            id="banana"
-            class="banana"
-            alt="Banana"
-            width="1565"
-            height="956"
-            draggable="false"
-            src="./frames/banana-00.png"
-          />
+          <div class="banana-stage" aria-hidden="false">
+            <img
+              id="banana"
+              class="banana"
+              alt="Banana"
+              width="1512"
+              height="865"
+              draggable="false"
+              decoding="sync"
+              src="./frames/banana-00.png"
+            />
+          </div>
           <div id="sticker-layer" class="sticker-layer"></div>
         </div>
       </section>
