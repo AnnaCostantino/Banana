@@ -83,6 +83,36 @@ def crop_inside_frame(arr: np.ndarray, outer: tuple[int, int, int, int]) -> np.n
     return arr[top : bottom + 1, left : right + 1].copy()
 
 
+def drop_detached_rule_strokes(arr: np.ndarray) -> np.ndarray:
+    """Remove pure-black rule strokes trailing above/below the fruit (not halftone)."""
+    out = arr.copy()
+    h, w = out.shape[:2]
+    lum = out[..., :3].max(axis=2)
+    ink = out[..., 3] > 0
+    dark = ink & (lum < 60)
+
+    y = h - 1
+    while y >= 0:
+        if not ink[y].any():
+            y -= 1
+            continue
+        if dark[y].mean() < 0.68 or (lum[y] > 95).any():
+            break
+        out[y, dark[y], 3] = 0
+        y -= 1
+
+    y = 0
+    while y < h:
+        if not ink[y].any():
+            y += 1
+            continue
+        if dark[y].mean() < 0.68 or (lum[y] > 95).any():
+            break
+        out[y, dark[y], 3] = 0
+        y += 1
+    return out
+
+
 def trim_edge_frame_rows(arr: np.ndarray, max_rows: int = 8) -> np.ndarray:
     """Drop full-width black frame strokes on the crop rim only (not banana flesh)."""
     out = arr.copy()
@@ -161,6 +191,7 @@ def process_frames(sheet_path: Path, out_dir: Path) -> dict[str, float | int | t
         crop = crop_inside_frame(arr, outer)
         crop = clear_paper(crop)
         crop = trim_edge_frame_rows(crop)
+        crop = drop_detached_rule_strokes(crop)
         crops.append(crop)
         anchors.append(registration_point(crop))
 
