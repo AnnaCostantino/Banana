@@ -78,7 +78,7 @@ button {
   width: min(92%, 900px);
   height: auto;
   max-height: 78vh;
-  aspect-ratio: 1239 / 733;
+  aspect-ratio: 1233 / 722;
   object-fit: contain;
   object-position: center center;
   pointer-events: none;

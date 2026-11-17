@@ -12,7 +12,7 @@ CELL_W, CELL_H = 1375, 739
 COLS = 4
 FRAME_COUNT = 31
 # Pixels inside the printed black rectangle (past the stroke, not into the fruit).
-FRAME_INSET = 5
+FRAME_INSET = 8
 PAPER_THR = 200
 
 
@@ -38,13 +38,19 @@ def find_frame_bounds(rgb: np.ndarray) -> tuple[int, int, int, int]:
     top = None
     for y in range(0, min(170, h)):
         if _is_horizontal_frame_line(black, y, w):
-            top = y
+            y2 = y
+            while y2 + 1 < h and _is_horizontal_frame_line(black, y2 + 1, w):
+                y2 += 1
+            top = y2  # bottom edge of the top border band
             break
 
     bottom = None
     for y in range(h - 1, max(h - 170, -1), -1):
         if _is_horizontal_frame_line(black, y, w):
-            bottom = y
+            y2 = y
+            while y2 - 1 >= 0 and _is_horizontal_frame_line(black, y2 - 1, w):
+                y2 -= 1
+            bottom = y2  # top edge of the bottom border band
             break
 
     left, right = 116, 1348
