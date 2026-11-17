@@ -1,4 +1,5 @@
 const FRAME_COUNT = 31;
+const PLACE_SCALE_BOOST = 1.1;
 
 const bananaEl = document.getElementById("banana");
 const canvasEl = document.getElementById("canvas");
@@ -47,7 +48,12 @@ function removeSticker(el) {
   el.remove();
 }
 
-function placeSticker(src, clientX, clientY) {
+function placeScaleBoostForSticker(sticker) {
+  const boost = sticker?.placeScaleBoost;
+  return typeof boost === "number" && boost > 1 ? boost : 1;
+}
+
+function placeSticker(src, clientX, clientY, placeScaleBoost = 1) {
   const rect = canvasEl.getBoundingClientRect();
   const x = ((clientX - rect.left) / rect.width) * 100;
   const y = ((clientY - rect.top) / rect.height) * 100;
@@ -56,6 +62,7 @@ function placeSticker(src, clientX, clientY) {
 
   const wrapper = document.createElement("div");
   wrapper.className = "placed-sticker";
+  if (placeScaleBoost > 1) wrapper.classList.add("placed-sticker--scale-boost");
   wrapper.tabIndex = 0;
   wrapper.setAttribute("role", "button");
   wrapper.setAttribute("aria-label", "Placed sticker. Press Delete to remove.");
@@ -188,20 +195,25 @@ function renderLibrary(stickers) {
         const dy = ev.clientY - startY;
         if (!dragged && dx * dx + dy * dy > 36) {
           dragged = true;
+          const boost = placeScaleBoostForSticker(sticker);
+          const ghostSize = Math.round(62 * boost);
+          const ghostOffset = ghostSize / 2;
           ghost = button.cloneNode(true);
           ghost.style.position = "fixed";
-          ghost.style.left = `${ev.clientX - 31}px`;
-          ghost.style.top = `${ev.clientY - 31}px`;
-          ghost.style.width = "62px";
-          ghost.style.height = "62px";
+          ghost.style.left = `${ev.clientX - ghostOffset}px`;
+          ghost.style.top = `${ev.clientY - ghostOffset}px`;
+          ghost.style.width = `${ghostSize}px`;
+          ghost.style.height = `${ghostSize}px`;
           ghost.style.opacity = "0.9";
           ghost.style.pointerEvents = "none";
           ghost.style.zIndex = "1000";
           document.body.appendChild(ghost);
         }
         if (ghost) {
-          ghost.style.left = `${ev.clientX - 31}px`;
-          ghost.style.top = `${ev.clientY - 31}px`;
+          const ghostW = parseFloat(ghost.style.width) || 62;
+          const ghostOffset = ghostW / 2;
+          ghost.style.left = `${ev.clientX - ghostOffset}px`;
+          ghost.style.top = `${ev.clientY - ghostOffset}px`;
         }
       };
 
@@ -217,7 +229,9 @@ function renderLibrary(stickers) {
             ev.clientX <= rect.right &&
             ev.clientY >= rect.top &&
             ev.clientY <= rect.bottom;
-          if (over) placeSticker(sticker.src, ev.clientX, ev.clientY);
+          if (over) {
+            placeSticker(sticker.src, ev.clientX, ev.clientY, placeScaleBoostForSticker(sticker));
+          }
           return;
         }
 
@@ -225,7 +239,8 @@ function renderLibrary(stickers) {
         placeSticker(
           sticker.src,
           rect.left + rect.width * (0.45 + Math.random() * 0.2),
-          rect.top + rect.height * (0.4 + Math.random() * 0.25)
+          rect.top + rect.height * (0.4 + Math.random() * 0.25),
+          placeScaleBoostForSticker(sticker)
         );
       };
 
@@ -273,10 +288,25 @@ async function boot() {
         { id: "chiquita-ecuador", src: "./stickers/chiquita-ecuador.png", label: "Chiquita Ecuador" },
         { id: "dole-colombia", src: "./stickers/dole-colombia.png", label: "Dole Colombia" },
         { id: "fyffes-jamaica", src: "./stickers/fyffes-jamaica.png", label: "Fyffes Jamaica" },
-        { id: "karla-mexico", src: "./stickers/karla-mexico.png", label: "Karla Bananas Mexico" },
-        { id: "del-monte-basketball", src: "./stickers/del-monte-basketball.png", label: "Del Monte Basketball" },
+        {
+          id: "karla-mexico",
+          src: "./stickers/karla-mexico.png",
+          label: "Karla Bananas Mexico",
+          placeScaleBoost: PLACE_SCALE_BOOST,
+        },
+        {
+          id: "del-monte-basketball",
+          src: "./stickers/del-monte-basketball.png",
+          label: "Del Monte Basketball",
+          placeScaleBoost: PLACE_SCALE_BOOST,
+        },
         { id: "dole-sunburst", src: "./stickers/dole-sunburst.png", label: "Dole Sunburst" },
-        { id: "chiquita-holidays", src: "./stickers/chiquita-holidays.png", label: "Chiquita Holidays" },
+        {
+          id: "chiquita-holidays",
+          src: "./stickers/chiquita-holidays.png",
+          label: "Chiquita Holidays",
+          placeScaleBoost: PLACE_SCALE_BOOST,
+        },
       ],
     };
   }
