@@ -142,6 +142,17 @@ def strip_spanning_lines(arr: np.ndarray) -> np.ndarray:
     return out
 
 
+def scrub_rim(arr: np.ndarray, rim: int = 22) -> np.ndarray:
+    out = arr.copy()
+    h, w = out.shape[:2]
+    out[:rim, :, 3] = 0
+    out[h - rim :, :, 3] = 0
+    out[:, :rim, 3] = 0
+    out[:, w - rim :, 3] = 0
+    out[out[..., 3] < 24, 3] = 0
+    return out
+
+
 def strip_light_lines(arr: np.ndarray, rim: int = 96) -> np.ndarray:
     """Remove pale scan/grid strokes in the outer rim (common on rotten frames)."""
     out = arr.copy()
@@ -314,6 +325,7 @@ def process_frames(sheet_path: Path, out_dir: Path) -> dict[str, float | int | t
         final = strip_spanning_lines(final)
         final = remove_line_art(final)
         final = strip_light_lines(final)
+        final = scrub_rim(final)
         Image.fromarray(final).save(out_dir / f"banana-{i:02d}.png", optimize=True)
 
     return {
