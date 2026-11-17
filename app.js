@@ -63,6 +63,7 @@ function placeSticker(src, clientX, clientY) {
   wrapper.style.top = `${top}%`;
   wrapper.dataset.x = String(left);
   wrapper.dataset.y = String(top);
+  applyStickerPose(wrapper, left, top);
 
   const img = document.createElement("img");
   img.className = "placed-sticker-img";
@@ -97,6 +98,21 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+/** Subtle curve + jitter so stickers read as stuck on the banana, not flat overlays. */
+function applyStickerPose(el, xPercent, yPercent) {
+  let jitter = parseFloat(el.dataset.jitter || "");
+  if (Number.isNaN(jitter)) {
+    jitter = (Math.random() - 0.5) * 8;
+    el.dataset.jitter = String(jitter);
+  }
+  const rotateZ = clamp((xPercent - 50) * 0.32 + jitter, -12, 12);
+  const rotateY = clamp((xPercent - 50) * 0.22, -9, 9);
+  const skewX = clamp((yPercent - 50) * 0.14, -7, 7);
+  el.style.setProperty("--sticker-rz", `${rotateZ.toFixed(2)}deg`);
+  el.style.setProperty("--sticker-ry", `${rotateY.toFixed(2)}deg`);
+  el.style.setProperty("--sticker-skew", `${skewX.toFixed(2)}deg`);
+}
+
 function bindPlacedDrag(el) {
   const onPointerDown = (event) => {
     if (event.button != null && event.button !== 0) return;
@@ -126,6 +142,7 @@ function bindPlacedDrag(el) {
     el.style.top = `${y}%`;
     el.dataset.x = String(x);
     el.dataset.y = String(y);
+    applyStickerPose(el, x, y);
   };
 
   const onPointerUp = (event) => {
@@ -173,18 +190,18 @@ function renderLibrary(stickers) {
           dragged = true;
           ghost = button.cloneNode(true);
           ghost.style.position = "fixed";
-          ghost.style.left = `${ev.clientX - 40}px`;
-          ghost.style.top = `${ev.clientY - 40}px`;
-          ghost.style.width = "80px";
-          ghost.style.height = "80px";
+          ghost.style.left = `${ev.clientX - 28}px`;
+          ghost.style.top = `${ev.clientY - 28}px`;
+          ghost.style.width = "56px";
+          ghost.style.height = "56px";
           ghost.style.opacity = "0.9";
           ghost.style.pointerEvents = "none";
           ghost.style.zIndex = "1000";
           document.body.appendChild(ghost);
         }
         if (ghost) {
-          ghost.style.left = `${ev.clientX - 40}px`;
-          ghost.style.top = `${ev.clientY - 40}px`;
+          ghost.style.left = `${ev.clientX - 28}px`;
+          ghost.style.top = `${ev.clientY - 28}px`;
         }
       };
 
