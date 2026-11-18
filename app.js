@@ -7,14 +7,16 @@ const layerEl = document.getElementById("sticker-layer");
 const libraryEl = document.getElementById("sticker-library");
 const minusBtn = document.getElementById("bruise-minus");
 const plusBtn = document.getElementById("bruise-plus");
-const sizePanelEl = document.getElementById("sticker-size");
-const sizeMinusBtn = document.getElementById("sticker-size-minus");
-const sizePlusBtn = document.getElementById("sticker-size-plus");
+const inlineScaleEl = document.getElementById("sticker-scale-inline");
+const inlineScaleMinusBtn = document.getElementById("sticker-scale-inline-minus");
+const inlineScalePlusBtn = document.getElementById("sticker-scale-inline-plus");
 
 const STICKER_USER_SCALE_MIN = 0.55;
 const STICKER_USER_SCALE_MAX = 2.5;
 /** Multiplicative step for ± size (buttons and [ ] keys). */
 const STICKER_USER_SCALE_STEP = 1.12;
+/** Gap between sticker bottom edge and inline ± row (screen px). */
+const STICKER_SCALE_INLINE_OFFSET_PX = 8;
 
 let bruiseIndex = 0;
 let assets = { frames: [], stickers: [] };
@@ -57,13 +59,46 @@ function nudgeStickerScale(el, direction) {
   applyUserScale(el, userScaleFor(el) * factor);
 }
 
+/** Pin inline ± under selected sticker using canvas-local % (tracks drag/scale/resize). */
+function positionStickerScaleInline() {
+  if (!inlineScaleEl) return;
+  if (!selectedSticker) {
+    inlineScaleEl.hidden = true;
+    return;
+  }
+
+  const canvasRect = canvasEl.getBoundingClientRect();
+  if (!canvasRect.width || !canvasRect.height) {
+    inlineScaleEl.hidden = true;
+    return;
+  }
+
+  const stickerRect = selectedSticker.getBoundingClientRect();
+  const centerX =
+    ((stickerRect.left + stickerRect.width / 2 - canvasRect.left) / canvasRect.width) * 100;
+  const topY =
+    ((stickerRect.bottom - canvasRect.top + STICKER_SCALE_INLINE_OFFSET_PX) / canvasRect.height) *
+    100;
+
+  inlineScaleEl.style.left = `${centerX}%`;
+  inlineScaleEl.style.top = `${topY}%`;
+  inlineScaleEl.hidden = false;
+}
+
 function syncStickerSizeUi() {
   const show = Boolean(selectedSticker);
-  if (sizePanelEl) sizePanelEl.hidden = !show;
-  if (!show) return;
+  if (!show) {
+    if (inlineScaleEl) inlineScaleEl.hidden = true;
+    return;
+  }
   const scale = userScaleFor(selectedSticker);
-  if (sizeMinusBtn) sizeMinusBtn.disabled = scale <= STICKER_USER_SCALE_MIN + 0.001;
-  if (sizePlusBtn) sizePlusBtn.disabled = scale >= STICKER_USER_SCALE_MAX - 0.001;
+  if (inlineScaleMinusBtn) {
+    inlineScaleMinusBtn.disabled = scale <= STICKER_USER_SCALE_MIN + 0.001;
+  }
+  if (inlineScalePlusBtn) {
+    inlineScalePlusBtn.disabled = scale >= STICKER_USER_SCALE_MAX - 0.001;
+  }
+  positionStickerScaleInline();
 }
 
 function selectSticker(el) {
@@ -164,6 +199,7 @@ function bindPlacedDrag(el) {
   const onPointerDown = (event) => {
     if (event.button != null && event.button !== 0) return;
     if (event.target.closest(".sticker-remove")) return;
+    if (event.target.closest(".sticker-scale-inline")) return;
     event.preventDefault();
     selectSticker(el);
     el.setPointerCapture(event.pointerId);
@@ -190,12 +226,14 @@ function bindPlacedDrag(el) {
     el.dataset.x = String(x);
     el.dataset.y = String(y);
     applyStickerPose(el, x, y);
+    if (selectedSticker === el) positionStickerScaleInline();
   };
 
   const onPointerUp = (event) => {
     if (!dragState || dragState.el !== el || dragState.pointerId !== event.pointerId) return;
     el.classList.remove("is-dragging");
     dragState = null;
+    if (selectedSticker === el) positionStickerScaleInline();
   };
 
   el.addEventListener("pointerdown", onPointerDown);
@@ -294,14 +332,24 @@ function renderLibrary(stickers) {
 
 minusBtn.addEventListener("click", () => setBruise(bruiseIndex - 1));
 plusBtn.addEventListener("click", () => setBruise(bruiseIndex + 1));
-sizeMinusBtn?.addEventListener("click", () => nudgeStickerScale(selectedSticker, -1));
-sizePlusBtn?.addEventListener("click", () => nudgeStickerScale(selectedSticker, 1));
+inlineScaleMinusBtn?.addEventListener("click", () => nudgeStickerScale(selectedSticker, -1));
+inlineScalePlusBtn?.addEventListener("click", () => nudgeStickerScale(selectedSticker, 1));
+inlineScaleEl?.addEventListener("pointerdown", (event) => {
+  event.stopPropagation();
+});
 
 canvasEl.addEventListener("pointerdown", (event) => {
+  if (event.target.closest(".sticker-scale-inline")) return;
   if (event.target === canvasEl || event.target === bananaEl || event.target === layerEl) {
     selectSticker(null);
   }
 });
+
+window.addEventListener("resize", () => positionStickerScaleInline());
+if (typeof ResizeObserver !== "undefined" && canvasEl) {
+  const canvasResizeObserver = new ResizeObserver(() => positionStickerScaleInline());
+  canvasResizeObserver.observe(canvasEl);
+}
 
 document.addEventListener("keydown", (event) => {
   if (!selectedSticker) return;
