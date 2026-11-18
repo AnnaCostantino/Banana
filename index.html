@@ -61,9 +61,21 @@
           </button>
         </div>
 
-        <section class="stickers-panel">
-          <h1 class="stickers-title">Stickers</h1>
-          <div class="stickers-tray" id="sticker-library" role="list"></div>
+        <section class="stickers-panel is-collapsed" id="stickers-panel">
+          <button
+            type="button"
+            class="stickers-toggle"
+            id="stickers-toggle"
+            aria-expanded="false"
+            aria-controls="stickers-tray-wrap"
+          >
+            <span class="stickers-toggle-spacer" aria-hidden="true"></span>
+            <span class="stickers-title">Stickers</span>
+            <span class="stickers-chevron" aria-hidden="true"></span>
+          </button>
+          <div class="stickers-tray-wrap" id="stickers-tray-wrap" hidden>
+            <div class="stickers-tray" id="sticker-library" role="list"></div>
+          </div>
         </section>
       </aside>
     </main>
