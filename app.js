@@ -10,6 +10,9 @@ const plusBtn = document.getElementById("bruise-plus");
 const inlineScaleEl = document.getElementById("sticker-scale-inline");
 const inlineScaleMinusBtn = document.getElementById("sticker-scale-inline-minus");
 const inlineScalePlusBtn = document.getElementById("sticker-scale-inline-plus");
+const stickersPanelEl = document.getElementById("stickers-panel");
+const stickersToggleBtn = document.getElementById("stickers-toggle");
+const stickersTrayWrapEl = document.getElementById("stickers-tray-wrap");
 
 const STICKER_USER_SCALE_MIN = 0.55;
 const STICKER_USER_SCALE_MAX = 2.5;
@@ -22,6 +25,19 @@ let bruiseIndex = 0;
 let assets = { frames: [], stickers: [] };
 let dragState = null;
 let selectedSticker = null;
+let stickersLibraryExpanded = false;
+
+function setStickersLibraryExpanded(expanded) {
+  stickersLibraryExpanded = expanded;
+  if (stickersPanelEl) {
+    stickersPanelEl.classList.toggle("is-collapsed", !expanded);
+    stickersPanelEl.classList.toggle("is-expanded", expanded);
+  }
+  if (stickersTrayWrapEl) stickersTrayWrapEl.hidden = !expanded;
+  if (stickersToggleBtn) {
+    stickersToggleBtn.setAttribute("aria-expanded", String(expanded));
+  }
+}
 
 function frameSrc(index) {
   return assets.frames[index] || `./frames/banana-${String(index).padStart(2, "0")}.png`;
@@ -332,6 +348,9 @@ function renderLibrary(stickers) {
 
 minusBtn.addEventListener("click", () => setBruise(bruiseIndex - 1));
 plusBtn.addEventListener("click", () => setBruise(bruiseIndex + 1));
+stickersToggleBtn?.addEventListener("click", () => {
+  setStickersLibraryExpanded(!stickersLibraryExpanded);
+});
 inlineScaleMinusBtn?.addEventListener("click", () => nudgeStickerScale(selectedSticker, -1));
 inlineScalePlusBtn?.addEventListener("click", () => nudgeStickerScale(selectedSticker, 1));
 inlineScaleEl?.addEventListener("pointerdown", (event) => {
@@ -418,6 +437,7 @@ async function boot() {
   }));
 
   renderLibrary(assets.stickers);
+  setStickersLibraryExpanded(false);
   setBruise(12);
   preloadFrames();
 }

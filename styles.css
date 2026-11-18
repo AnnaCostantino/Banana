@@ -306,17 +306,88 @@ button {
 .stickers-panel {
   background: var(--panel);
   color: var(--panel-ink);
-  border-radius: var(--radius-panel);
-  padding: 1.1rem 1rem 1rem;
   box-shadow: var(--shadow-soft);
+  overflow: hidden;
+  transition: border-radius 220ms ease, padding 220ms ease;
+}
+
+.stickers-panel.is-collapsed {
+  border-radius: 999px;
+  padding: 0.45rem 0.55rem;
+  min-height: 64px;
+}
+
+.stickers-panel.is-expanded {
+  border-radius: var(--radius-panel);
+  padding: 0.45rem 0.55rem 1rem;
+}
+
+.stickers-toggle {
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  min-height: 44px;
+  color: inherit;
+  text-align: center;
+}
+
+.stickers-toggle-spacer {
+  width: 44px;
+  height: 44px;
 }
 
 .stickers-title {
-  margin: 0 0 0.85rem;
+  margin: 0;
   text-align: center;
-  font-size: clamp(1.45rem, 2.2vw, 1.9rem);
+  font-size: clamp(1.35rem, 2vw, 1.75rem);
   font-weight: 600;
   letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+.stickers-chevron {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  transition: transform 220ms ease, background 160ms ease;
+}
+
+.stickers-chevron::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-right: 2.5px solid currentColor;
+  border-bottom: 2.5px solid currentColor;
+  transform: rotate(45deg) translate(-1px, -2px);
+}
+
+.stickers-panel.is-expanded .stickers-chevron {
+  transform: rotate(180deg);
+}
+
+.stickers-toggle:hover .stickers-chevron {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.stickers-toggle:active .stickers-chevron {
+  transform: scale(0.94);
+}
+
+.stickers-panel.is-expanded .stickers-toggle:active .stickers-chevron {
+  transform: rotate(180deg) scale(0.94);
+}
+
+.stickers-tray-wrap[hidden] {
+  display: none !important;
+}
+
+.stickers-panel.is-expanded .stickers-tray-wrap {
+  margin-top: 0.65rem;
+  animation: stickers-tray-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 .stickers-tray {
@@ -328,7 +399,20 @@ button {
   gap: 0.75rem 0.65rem;
   align-items: center;
   justify-items: center;
-  min-height: 320px;
+  max-height: min(52vh, 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@keyframes stickers-tray-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .sticker-thumb {
