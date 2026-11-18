@@ -7,6 +7,14 @@ const layerEl = document.getElementById("sticker-layer");
 const libraryEl = document.getElementById("sticker-library");
 const minusBtn = document.getElementById("bruise-minus");
 const plusBtn = document.getElementById("bruise-plus");
+const sizePanelEl = document.getElementById("sticker-size");
+const sizeMinusBtn = document.getElementById("sticker-size-minus");
+const sizePlusBtn = document.getElementById("sticker-size-plus");
+
+const STICKER_USER_SCALE_MIN = 0.55;
+const STICKER_USER_SCALE_MAX = 2.5;
+/** Multiplicative step for ± size (buttons and [ ] keys). */
+const STICKER_USER_SCALE_STEP = 1.12;
 
 let bruiseIndex = 0;
 let assets = { frames: [], stickers: [] };
@@ -31,6 +39,33 @@ function preloadFrames() {
   }
 }
 
+function userScaleFor(el) {
+  const v = parseFloat(el?.dataset.userScale ?? "1");
+  return Number.isFinite(v) ? v : 1;
+}
+
+function applyUserScale(el, nextScale) {
+  const scale = clamp(nextScale, STICKER_USER_SCALE_MIN, STICKER_USER_SCALE_MAX);
+  el.dataset.userScale = String(scale);
+  el.style.setProperty("--sticker-user-scale", String(scale));
+  syncStickerSizeUi();
+}
+
+function nudgeStickerScale(el, direction) {
+  if (!el) return;
+  const factor = direction > 0 ? STICKER_USER_SCALE_STEP : 1 / STICKER_USER_SCALE_STEP;
+  applyUserScale(el, userScaleFor(el) * factor);
+}
+
+function syncStickerSizeUi() {
+  const show = Boolean(selectedSticker);
+  if (sizePanelEl) sizePanelEl.hidden = !show;
+  if (!show) return;
+  const scale = userScaleFor(selectedSticker);
+  if (sizeMinusBtn) sizeMinusBtn.disabled = scale <= STICKER_USER_SCALE_MIN + 0.001;
+  if (sizePlusBtn) sizePlusBtn.disabled = scale >= STICKER_USER_SCALE_MAX - 0.001;
+}
+
 function selectSticker(el) {
   if (selectedSticker === el) return;
   if (selectedSticker) selectedSticker.classList.remove("is-selected");
@@ -39,6 +74,7 @@ function selectSticker(el) {
     selectedSticker.classList.add("is-selected");
     selectedSticker.focus({ preventScroll: true });
   }
+  syncStickerSizeUi();
 }
 
 function removeSticker(el) {
@@ -46,6 +82,7 @@ function removeSticker(el) {
   if (selectedSticker === el) selectedSticker = null;
   if (dragState?.el === el) dragState = null;
   el.remove();
+  syncStickerSizeUi();
 }
 
 function placeScaleBoostForSticker(sticker) {
@@ -70,6 +107,9 @@ function placeSticker(src, clientX, clientY, placeScaleBoost = 1) {
   wrapper.style.top = `${top}%`;
   wrapper.dataset.x = String(left);
   wrapper.dataset.y = String(top);
+  wrapper.dataset.userScale = "1";
+  wrapper.dataset.placeScaleBoost = String(placeScaleBoost);
+  wrapper.style.setProperty("--sticker-user-scale", "1");
   applyStickerPose(wrapper, left, top);
 
   const img = document.createElement("img");
@@ -254,6 +294,8 @@ function renderLibrary(stickers) {
 
 minusBtn.addEventListener("click", () => setBruise(bruiseIndex - 1));
 plusBtn.addEventListener("click", () => setBruise(bruiseIndex + 1));
+sizeMinusBtn?.addEventListener("click", () => nudgeStickerScale(selectedSticker, -1));
+sizePlusBtn?.addEventListener("click", () => nudgeStickerScale(selectedSticker, 1));
 
 canvasEl.addEventListener("pointerdown", (event) => {
   if (event.target === canvasEl || event.target === bananaEl || event.target === layerEl) {
@@ -271,6 +313,15 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     event.preventDefault();
     selectSticker(null);
+  }
+  // [ / ] resize selected sticker (bruise has no key bindings).
+  if (event.key === "[" || event.key === "{") {
+    event.preventDefault();
+    nudgeStickerScale(selectedSticker, -1);
+  }
+  if (event.key === "]" || event.key === "}") {
+    event.preventDefault();
+    nudgeStickerScale(selectedSticker, 1);
   }
 });
 
