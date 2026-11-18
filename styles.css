@@ -255,8 +255,52 @@ button {
   cursor: default;
 }
 
-.sticker-size {
-  transition: opacity 200ms ease, transform 200ms ease;
+.sticker-scale-inline {
+  position: absolute;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.18rem 0.28rem;
+  background: var(--panel);
+  color: var(--panel-ink);
+  border-radius: 999px;
+  box-shadow: 0 8px 20px rgba(16, 85, 168, 0.22);
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+}
+
+.sticker-scale-inline[hidden] {
+  display: none !important;
+}
+
+.sticker-scale-inline-btn {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--panel-ink);
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.sticker-scale-inline-btn span {
+  font-size: 1.35rem;
+  line-height: 1;
+  font-weight: 500;
+}
+
+.sticker-scale-inline-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.sticker-scale-inline-btn:active {
+  transform: scale(0.94);
+}
+
+.sticker-scale-inline-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 .stickers-panel {
