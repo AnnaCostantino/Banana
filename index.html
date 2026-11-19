@@ -81,6 +81,38 @@
       </section>
 
       <aside class="panel" aria-label="Controls">
+        <section class="side-tool-panel is-collapsed" id="poster-color-panel">
+          <button
+            type="button"
+            class="side-tool-toggle"
+            id="poster-color-toggle"
+            aria-expanded="false"
+            aria-controls="poster-color-tray-wrap"
+          >
+            <span class="side-tool-toggle-spacer" aria-hidden="true"></span>
+            <span class="side-tool-title">Color</span>
+            <span class="side-tool-chevron" aria-hidden="true"></span>
+          </button>
+          <div class="side-tool-tray-wrap" id="poster-color-tray-wrap" hidden>
+            <div class="side-tool-tray poster-color-tray color-picker-ref" role="group" aria-label="Poster color">
+              <div
+                class="hsv-sv"
+                id="poster-hsv-sv"
+                tabindex="0"
+                aria-label="Poster saturation and brightness"
+              >
+                <span class="hsv-sv-pointer" id="poster-hsv-sv-pointer" aria-hidden="true"></span>
+              </div>
+              <div class="hsv-hue" id="poster-hsv-hue" tabindex="0" aria-label="Poster hue">
+                <span class="hsv-hue-pointer" id="poster-hsv-hue-pointer" aria-hidden="true"></span>
+              </div>
+              <button type="button" class="poster-color-reset" id="poster-color-reset">
+                Reset yellow
+              </button>
+            </div>
+          </div>
+        </section>
+
         <section class="side-tool-panel is-collapsed" id="banana-panel">
           <button
             type="button"

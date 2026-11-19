@@ -50,7 +50,7 @@ export async function exportCollage({ artboardEl, canvasEl, format, dpi, onPrepa
   const layoutWidth = rasterRoot.offsetWidth || 1;
   const scale = widthPx / layoutWidth;
 
-  onPrepare?.();
+  await Promise.resolve(onPrepare?.());
 
   try {
     const html2canvas = await loadHtml2Canvas();

@@ -829,6 +829,40 @@ button {
   pointer-events: none;
 }
 
+.poster-color-tray {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 1rem 1rem 1.1rem;
+}
+
+.poster-color-tray .hsv-sv,
+.poster-color-tray .hsv-hue {
+  flex-shrink: 0;
+}
+
+.poster-color-reset {
+  width: 100%;
+  margin-top: 0.15rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--panel-ink);
+  background: rgba(255, 255, 255, 0.12);
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.poster-color-reset:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.poster-color-reset:active {
+  transform: scale(0.97);
+}
+
 .export-tray {
   padding: 0.85rem 1rem 1.1rem;
 }

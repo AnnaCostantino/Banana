@@ -1,6 +1,7 @@
 import { initShapes, deselectShape } from "./shapes.js";
 import { applyRotation, bindRotationHandle, createRotationHandle } from "./rotation.js";
 import { exportCollage } from "./export.js";
+import { initPosterColor } from "./poster-color.js";
 import {
   applyBBox,
   bindBBoxElement,
@@ -47,6 +48,8 @@ let stickersLibraryExpanded = false;
 let bananaToolExpanded = false;
 /** @type {ReturnType<typeof initShapes> | null} */
 let shapesApi = null;
+/** @type {ReturnType<typeof initPosterColor> | null} */
+let posterColorApi = null;
 
 function setSideToolExpanded(panelEl, trayWrapEl, toggleBtn, expanded, expandedFlagRef) {
   if (panelEl) {
@@ -473,10 +476,11 @@ exportDownloadBtn?.addEventListener("click", async () => {
       canvasEl,
       format,
       dpi,
-      onPrepare: () => {
+      onPrepare: async () => {
         selectPlaced(null);
         deselectShape();
         canvasEl.classList.add("is-exporting");
+        await posterColorApi?.ensureExportReady?.();
       },
       onRestore: () => {
         canvasEl.classList.remove("is-exporting");
@@ -601,6 +605,20 @@ async function boot() {
       placeBanana(clientX, clientY, DEFAULT_BANANA_BRUISE);
     });
   }
+
+  posterColorApi = initPosterColor({
+    textureEl,
+    artboardEl: posterArtboardEl,
+    sourceSrc: POSTER_TEXTURE_SRC,
+    panelEl: document.getElementById("poster-color-panel"),
+    toggleBtn: document.getElementById("poster-color-toggle"),
+    trayWrapEl: document.getElementById("poster-color-tray-wrap"),
+    svEl: document.getElementById("poster-hsv-sv"),
+    hueEl: document.getElementById("poster-hsv-hue"),
+    svPointer: document.getElementById("poster-hsv-sv-pointer"),
+    huePointer: document.getElementById("poster-hsv-hue-pointer"),
+    resetBtn: document.getElementById("poster-color-reset"),
+  });
 
   shapesApi = initShapes({
     canvasEl,
