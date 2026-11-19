@@ -274,10 +274,8 @@ button {
 
 .placed-inline-size,
 .placed-inline-bruise {
-  display: flex;
-  align-items: center;
-  gap: 0.15rem;
-  padding: 0.18rem 0.28rem;
+  min-width: 7.25rem;
+  padding: 0.18rem 0.32rem;
   background: var(--panel);
   color: var(--panel-ink);
   border-radius: 999px;
@@ -288,12 +286,28 @@ button {
   display: none !important;
 }
 
-.placed-inline-bruise-label {
-  font-size: 0.82rem;
+.placed-inline-label {
+  font-size: clamp(0.78rem, 1.6vw, 0.92rem);
   font-weight: 600;
-  padding-inline: 0.2rem;
+  padding-inline: 0.35rem;
   line-height: 1;
   letter-spacing: 0.02em;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.placed-inline-size {
+  display: grid;
+  grid-template-columns: 28px 1fr 28px;
+  align-items: center;
+  gap: 0.12rem;
+}
+
+.placed-inline-bruise {
+  display: grid;
+  grid-template-columns: 28px 1fr 28px;
+  align-items: center;
+  gap: 0.12rem;
 }
 
 .placed-inline-btn {
