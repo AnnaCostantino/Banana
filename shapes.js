@@ -5,6 +5,14 @@ import {
   clearBboxDragIf,
   createBBoxHandles as createHandleBox,
 } from "./bbox.js";
+import {
+  bindHsvPicker,
+  hexToHsv,
+  hsvToRgb,
+  rgbToHex,
+  updateSvPickerBackground,
+  syncHsvPickerPointers,
+} from "./hsv-color.js";
 
 const SHAPE_TYPES = ["rectangle", "ellipse", "triangle"];
 const DEFAULT_SHAPE_FILL = "#1055A8";
@@ -28,76 +36,20 @@ let pickerHue = 212;
 let pickerSat = 0.72;
 let pickerVal = 0.55;
 
-function hsvToRgb(h, s, v) {
-  const c = v * s;
-  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-  const m = v - c;
-  let r = 0;
-  let g = 0;
-  let b = 0;
-  if (h < 60) [r, g, b] = [c, x, 0];
-  else if (h < 120) [r, g, b] = [x, c, 0];
-  else if (h < 180) [r, g, b] = [0, c, x];
-  else if (h < 240) [r, g, b] = [0, x, c];
-  else if (h < 300) [r, g, b] = [x, 0, c];
-  else [r, g, b] = [c, 0, x];
-  return {
-    r: Math.round((r + m) * 255),
-    g: Math.round((g + m) * 255),
-    b: Math.round((b + m) * 255),
-  };
-}
-
-function rgbToHex(r, g, b) {
-  const h = (n) => n.toString(16).padStart(2, "0");
-  return `#${h(r)}${h(g)}${h(b)}`;
-}
-
-function hexToHsv(hex) {
-  const raw = hex.replace("#", "");
-  const full = raw.length === 3 ? raw.split("").map((c) => c + c).join("") : raw;
-  const num = parseInt(full, 16);
-  const r = ((num >> 16) & 255) / 255;
-  const g = ((num >> 8) & 255) / 255;
-  const b = (num & 255) / 255;
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const d = max - min;
-  let h = 0;
-  if (d > 0) {
-    if (max === r) h = ((g - b) / d) % 6;
-    else if (max === g) h = (b - r) / d + 2;
-    else h = (r - g) / d + 4;
-    h *= 60;
-    if (h < 0) h += 360;
-  }
-  const s = max === 0 ? 0 : d / max;
-  return { h, s, v: max };
-}
-
 function currentPickerColor() {
   const { r, g, b } = hsvToRgb(pickerHue, pickerSat, pickerVal);
   return rgbToHex(r, g, b);
 }
 
-function updateSvBackground() {
-  if (!hsvSvEl) return;
-  const hueColor = `hsl(${pickerHue} 100% 50%)`;
-  hsvSvEl.style.background = `
-    linear-gradient(to top, #000, transparent),
-    linear-gradient(to right, #fff, ${hueColor})
-  `;
-}
-
 function syncPickerPointers() {
-  if (hsvSvPointer) {
-    hsvSvPointer.style.left = `${pickerSat * 100}%`;
-    hsvSvPointer.style.top = `${(1 - pickerVal) * 100}%`;
-  }
-  if (hsvHuePointer) {
-    hsvHuePointer.style.top = `${(pickerHue / 360) * 100}%`;
-  }
-  updateSvBackground();
+  syncHsvPickerPointers({
+    svPointer: hsvSvPointer,
+    huePointer: hsvHuePointer,
+    h: pickerHue,
+    s: pickerSat,
+    v: pickerVal,
+  });
+  updateSvPickerBackground(hsvSvEl, pickerHue);
 }
 
 function applyPickerToSelectedShape() {
@@ -273,56 +225,21 @@ function setShapesLibraryExpanded(expanded) {
 
 function bindColorPicker() {
   if (!hsvSvEl || !hsvHueEl) return;
-  setPickerFromHex(DEFAULT_SHAPE_FILL);
-
-  const pickSv = (event) => {
-    const rect = hsvSvEl.getBoundingClientRect();
-    pickerSat = api.clamp((event.clientX - rect.left) / rect.width, 0, 1);
-    pickerVal = api.clamp(1 - (event.clientY - rect.top) / rect.height, 0, 1);
-    syncPickerPointers();
-    applyPickerToSelectedShape();
-  };
-
-  const pickHue = (event) => {
-    const rect = hsvHueEl.getBoundingClientRect();
-    pickerHue = api.clamp(((event.clientY - rect.top) / rect.height) * 360, 0, 359.9);
-    syncPickerPointers();
-    applyPickerToSelectedShape();
-  };
-
-  let svDrag = null;
-  hsvSvEl.addEventListener("pointerdown", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    svDrag = event.pointerId;
-    hsvSvEl.setPointerCapture(event.pointerId);
-    pickSv(event);
+  bindHsvPicker({
+    svEl: hsvSvEl,
+    hueEl: hsvHueEl,
+    svPointer: hsvSvPointer,
+    huePointer: hsvHuePointer,
+    clamp: api.clamp,
+    initial: hexToHsv(DEFAULT_SHAPE_FILL),
+    onChange: ({ h, s, v }) => {
+      pickerHue = h;
+      pickerSat = s;
+      pickerVal = v;
+      applyPickerToSelectedShape();
+    },
+    stopPropagationEl: colorPickerEl,
   });
-  hsvSvEl.addEventListener("pointermove", (event) => {
-    if (svDrag !== event.pointerId) return;
-    pickSv(event);
-  });
-  hsvSvEl.addEventListener("pointerup", () => {
-    svDrag = null;
-  });
-
-  let hueDrag = null;
-  hsvHueEl.addEventListener("pointerdown", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    hueDrag = event.pointerId;
-    hsvHueEl.setPointerCapture(event.pointerId);
-    pickHue(event);
-  });
-  hsvHueEl.addEventListener("pointermove", (event) => {
-    if (hueDrag !== event.pointerId) return;
-    pickHue(event);
-  });
-  hsvHueEl.addEventListener("pointerup", () => {
-    hueDrag = null;
-  });
-
-  colorPickerEl?.addEventListener("pointerdown", (event) => event.stopPropagation());
 }
 
 export function initShapes(options) {
