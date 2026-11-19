@@ -19,6 +19,7 @@
               height="4800"
               draggable="false"
               decoding="async"
+              crossorigin="anonymous"
               src="./textures/banana-poster-texture.jpg"
             />
           </div>
@@ -157,6 +158,43 @@
           </button>
           <div class="side-tool-tray-wrap" id="shapes-tray-wrap" hidden>
             <div class="side-tool-tray shapes-tray" id="shape-library" role="list"></div>
+          </div>
+        </section>
+
+        <section class="side-tool-panel is-collapsed" id="export-panel">
+          <button
+            type="button"
+            class="side-tool-toggle"
+            id="export-toggle"
+            aria-expanded="false"
+            aria-controls="export-tray-wrap"
+          >
+            <span class="side-tool-toggle-spacer" aria-hidden="true"></span>
+            <span class="side-tool-title">Export</span>
+            <span class="side-tool-chevron" aria-hidden="true"></span>
+          </button>
+          <div class="side-tool-tray-wrap" id="export-tray-wrap" hidden>
+            <div class="side-tool-tray export-tray">
+              <div class="export-form">
+                <label class="export-field">
+                  <span class="export-label">Format</span>
+                  <select id="export-format" class="export-select">
+                    <option value="jpg">JPG</option>
+                    <option value="pdf">PDF</option>
+                  </select>
+                </label>
+                <label class="export-field">
+                  <span class="export-label">Resolution</span>
+                  <select id="export-dpi" class="export-select">
+                    <option value="300">300 dpi</option>
+                    <option value="600">600 dpi</option>
+                  </select>
+                </label>
+                <button type="button" class="export-download-btn" id="export-download">
+                  Download collage
+                </button>
+              </div>
+            </div>
           </div>
         </section>
       </aside>
