@@ -17,6 +17,7 @@ const POSTER_TEXTURE_SRC = "./textures/banana-poster-texture.jpg";
 
 const textureEl = document.getElementById("poster-texture");
 const canvasEl = document.getElementById("canvas");
+const posterArtboardEl = document.getElementById("poster-artboard");
 const bananaLayerEl = document.getElementById("banana-layer");
 const shapeLayerEl = document.getElementById("shape-layer");
 const layerEl = document.getElementById("sticker-layer");
@@ -228,17 +229,14 @@ function percentPositionFromClient(clientX, clientY) {
   const rect = canvasEl.getBoundingClientRect();
   const x = ((clientX - rect.left) / rect.width) * 100;
   const y = ((clientY - rect.top) / rect.height) * 100;
-  return {
-    left: clamp(x, 6, 94),
-    top: clamp(y, 8, 92),
-  };
+  return { left: x, top: y };
 }
 
 function placeBanana(clientX, clientY, bruiseIndex = DEFAULT_BANANA_BRUISE) {
   const { left, top } = percentPositionFromClient(clientX, clientY);
   const w = BANANA_PLACE_W_PCT;
   const h = w / BANANA_IMG_ASPECT;
-  const box = bboxFromCenter(left, top, w, h, clamp);
+  const box = bboxFromCenter(left, top, w, h);
 
   const wrapper = document.createElement("div");
   wrapper.className = "placed-banana";
@@ -280,7 +278,7 @@ function placeSticker(src, clientX, clientY, placeScaleBoost = 1) {
   const { left, top } = percentPositionFromClient(clientX, clientY);
   const w = STICKER_PLACE_W_PCT * placeScaleBoost;
   let h = w;
-  const box = bboxFromCenter(left, top, w, h, clamp);
+  const box = bboxFromCenter(left, top, w, h);
 
   const wrapper = document.createElement("div");
   wrapper.className = "placed-sticker";
@@ -471,6 +469,7 @@ exportDownloadBtn?.addEventListener("click", async () => {
   exportDownloadBtn.textContent = "Exporting…";
   try {
     await exportCollage({
+      artboardEl: posterArtboardEl,
       canvasEl,
       format,
       dpi,

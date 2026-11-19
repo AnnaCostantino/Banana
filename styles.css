@@ -69,9 +69,30 @@ button {
   aspect-ratio: 9813 / 12597;
   user-select: none;
   touch-action: none;
+  overflow: visible;
+  background: transparent;
+  box-shadow: 0 18px 48px rgba(16, 85, 168, 0.1);
+}
+
+/* Illustrator-style trim: artwork + layers clip here; UI chrome stays on #canvas. */
+.poster-artboard {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
   overflow: hidden;
   background: #f4df3a;
-  box-shadow: 0 18px 48px rgba(16, 85, 168, 0.1);
+  border-radius: 0;
+}
+
+.canvas-ui-chrome {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+}
+
+.canvas-ui-chrome > * {
+  pointer-events: auto;
 }
 
 .poster-stage {

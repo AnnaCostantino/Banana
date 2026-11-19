@@ -189,10 +189,8 @@ function placeShape(type, clientX, clientY) {
   const rect = api.canvasEl.getBoundingClientRect();
   const w = 22;
   const h = type === "rectangle" ? 14 : 18;
-  let x = ((clientX - rect.left) / rect.width) * 100 - w / 2;
-  let y = ((clientY - rect.top) / rect.height) * 100 - h / 2;
-  x = api.clamp(x, 4, 96 - w);
-  y = api.clamp(y, 4, 96 - h);
+  const x = ((clientX - rect.left) / rect.width) * 100 - w / 2;
+  const y = ((clientY - rect.top) / rect.height) * 100 - h / 2;
 
   const wrapper = document.createElement("div");
   wrapper.className = "placed-shape";
