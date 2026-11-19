@@ -42,18 +42,19 @@ export function describeExportMath(dpi) {
 /**
  * Rasterize #canvas at print resolution and download JPG or PDF.
  */
-export async function exportCollage({ canvasEl, format, dpi, onPrepare, onRestore }) {
-  if (!canvasEl) throw new Error("Missing canvas");
+export async function exportCollage({ artboardEl, canvasEl, format, dpi, onPrepare, onRestore }) {
+  const rasterRoot = artboardEl || canvasEl;
+  if (!rasterRoot) throw new Error("Missing export root");
 
   const { widthPx, heightPx, widthIn, heightIn } = exportPixelSize(dpi);
-  const layoutWidth = canvasEl.offsetWidth || 1;
+  const layoutWidth = rasterRoot.offsetWidth || 1;
   const scale = widthPx / layoutWidth;
 
   onPrepare?.();
 
   try {
     const html2canvas = await loadHtml2Canvas();
-    const raster = await html2canvas(canvasEl, {
+    const raster = await html2canvas(rasterRoot, {
       scale,
       useCORS: true,
       allowTaint: false,

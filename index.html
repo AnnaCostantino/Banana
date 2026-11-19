@@ -10,22 +10,25 @@
     <main class="app">
       <section class="stage" aria-label="Poster canvas">
         <div class="canvas" id="canvas">
-          <div class="poster-stage" aria-hidden="true">
-            <img
-              id="poster-texture"
-              class="poster-texture"
-              alt=""
-              width="3739"
-              height="4800"
-              draggable="false"
-              decoding="async"
-              crossorigin="anonymous"
-              src="./textures/banana-poster-texture.jpg"
-            />
+          <div class="poster-artboard" id="poster-artboard">
+            <div class="poster-stage" aria-hidden="true">
+              <img
+                id="poster-texture"
+                class="poster-texture"
+                alt=""
+                width="3739"
+                height="4800"
+                draggable="false"
+                decoding="async"
+                crossorigin="anonymous"
+                src="./textures/banana-poster-texture.jpg"
+              />
+            </div>
+            <div id="banana-layer" class="banana-layer"></div>
+            <div id="shape-layer" class="shape-layer"></div>
+            <div id="sticker-layer" class="sticker-layer"></div>
           </div>
-          <div id="banana-layer" class="banana-layer"></div>
-          <div id="shape-layer" class="shape-layer"></div>
-          <div id="sticker-layer" class="sticker-layer"></div>
+          <div class="canvas-ui-chrome">
           <div
             class="placed-inline"
             id="placed-inline"
@@ -72,6 +75,7 @@
             <div class="hsv-hue" id="hsv-hue" tabindex="0" aria-label="Hue">
               <span class="hsv-hue-pointer" id="hsv-hue-pointer" aria-hidden="true"></span>
             </div>
+          </div>
           </div>
         </div>
       </section>

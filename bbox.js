@@ -60,10 +60,8 @@ function onBboxPointerMove(event) {
   const el = bboxDrag.el;
 
   if (bboxDrag.mode === "move") {
-    const w = parseFloat(el.dataset.w);
-    const h = parseFloat(el.dataset.h);
-    const x = clamp(bboxDrag.origX + dxPct, 2, 98 - w);
-    const y = clamp(bboxDrag.origY + dyPct, 2, 98 - h);
+    const x = bboxDrag.origX + dxPct;
+    const y = bboxDrag.origY + dyPct;
     el.dataset.x = String(x);
     el.dataset.y = String(y);
     applyBBox(el);
@@ -105,8 +103,6 @@ function onBboxPointerMove(event) {
     }
   }
 
-  x = clamp(x, 2, 98 - w);
-  y = clamp(y, 2, 98 - h);
   el.dataset.x = String(x);
   el.dataset.y = String(y);
   el.dataset.w = String(w);
@@ -183,10 +179,8 @@ if (typeof window !== "undefined") {
   window.addEventListener("pointercancel", endBboxDrag);
 }
 
-export function bboxFromCenter(cx, cy, w, h, clamp) {
-  const x = clamp(cx - w / 2, 2, 98 - w);
-  const y = clamp(cy - h / 2, 2, 98 - h);
-  return { x, y, w, h };
+export function bboxFromCenter(cx, cy, w, h) {
+  return { x: cx - w / 2, y: cy - h / 2, w, h };
 }
 
 export function clearBboxDragIf(el) {
