@@ -226,7 +226,9 @@ button {
 .placed-sticker.is-selected .placed-remove,
 .placed-sticker:focus-visible .placed-remove,
 .placed-banana.is-selected .placed-remove,
-.placed-banana:focus-visible .placed-remove {
+.placed-banana:focus-visible .placed-remove,
+.placed-shape.is-selected .placed-remove,
+.placed-shape:focus-visible .placed-remove {
   display: grid;
 }
 
