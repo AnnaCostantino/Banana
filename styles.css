@@ -121,7 +121,8 @@ button {
   width: clamp(48px, 7.7vw, 79px);
   pointer-events: auto;
   cursor: grab;
-  transform: translate(-50%, -50%) scale(var(--placed-user-scale, 1));
+  transform: translate(-50%, -50%) rotate(var(--placed-rotate, 0deg))
+    scale(var(--placed-user-scale, 1));
   transform-origin: center center;
   user-select: none;
   -webkit-user-drag: none;
@@ -166,7 +167,8 @@ button {
   width: clamp(140px, 28vw, 240px);
   pointer-events: auto;
   cursor: grab;
-  transform: translate(-50%, -50%) scale(var(--placed-user-scale, 1));
+  transform: translate(-50%, -50%) rotate(var(--placed-rotate, 0deg))
+    scale(var(--placed-user-scale, 1));
   transform-origin: center center;
   user-select: none;
   -webkit-user-drag: none;
@@ -580,6 +582,8 @@ button {
   cursor: grab;
   touch-action: none;
   outline: none;
+  transform: rotate(var(--placed-rotate, 0deg));
+  transform-origin: center center;
 }
 
 .placed-shape:focus {
@@ -690,6 +694,58 @@ button {
   top: 50%;
   transform: translate(-50%, -50%);
   cursor: ew-resize;
+}
+
+.rotation-handle {
+  position: absolute;
+  left: 50%;
+  top: -26px;
+  z-index: 4;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  display: none;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: var(--panel);
+  box-shadow: 0 2px 8px rgba(16, 85, 168, 0.35);
+  cursor: grab;
+  transform: translateX(-50%);
+  touch-action: none;
+}
+
+.rotation-handle::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 1.5px;
+  height: 10px;
+  background: rgba(16, 85, 168, 0.75);
+  transform: translateX(-50%);
+}
+
+.placed-sticker.is-selected .rotation-handle,
+.placed-sticker:focus-visible .rotation-handle,
+.placed-banana.is-selected .rotation-handle,
+.placed-banana:focus-visible .rotation-handle,
+.placed-shape.is-selected .rotation-handle,
+.placed-shape:focus-visible .rotation-handle {
+  display: block;
+}
+
+.rotation-handle:active {
+  cursor: grabbing;
+}
+
+.placed-sticker.is-selected::after,
+.placed-banana.is-selected::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border: 1.5px dashed rgba(16, 85, 168, 0.75);
+  pointer-events: none;
+  border-radius: 4px;
 }
 
 .placed-shape.is-selected::after {
