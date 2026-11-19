@@ -1,3 +1,5 @@
+import { initShapes, deselectShape } from "./shapes.js";
+
 const FRAME_COUNT = 31;
 const PLACE_SCALE_BOOST = 1.1;
 const DEFAULT_BANANA_BRUISE = 12;
@@ -6,6 +8,7 @@ const POSTER_TEXTURE_SRC = "./textures/banana-poster-texture.jpg";
 const textureEl = document.getElementById("poster-texture");
 const canvasEl = document.getElementById("canvas");
 const bananaLayerEl = document.getElementById("banana-layer");
+const shapeLayerEl = document.getElementById("shape-layer");
 const layerEl = document.getElementById("sticker-layer");
 const libraryEl = document.getElementById("sticker-library");
 const bananaPlaceBtn = document.getElementById("banana-place");
@@ -37,6 +40,8 @@ let dragState = null;
 let selectedPlaced = null;
 let stickersLibraryExpanded = false;
 let bananaToolExpanded = false;
+/** @type {ReturnType<typeof initShapes> | null} */
+let shapesApi = null;
 
 function setSideToolExpanded(panelEl, trayWrapEl, toggleBtn, expanded, expandedFlagRef) {
   if (panelEl) {
@@ -175,6 +180,7 @@ function syncInlineUi() {
 
 function selectPlaced(el) {
   if (selectedPlaced === el) return;
+  deselectShape();
   if (selectedPlaced) selectedPlaced.classList.remove("is-selected");
   selectedPlaced = el;
   if (selectedPlaced) {
@@ -197,7 +203,8 @@ function placeScaleBoostForSticker(sticker) {
   return typeof boost === "number" && boost > 1 ? boost : 1;
 }
 
-function createRemoveButton(wrapper) {
+function createRemoveButton(wrapper, onRemove) {
+  const remove = onRemove || (() => removePlaced(wrapper));
   const removeBtn = document.createElement("button");
   removeBtn.type = "button";
   removeBtn.className = "placed-remove";
@@ -210,7 +217,7 @@ function createRemoveButton(wrapper) {
   removeBtn.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    removePlaced(wrapper);
+    remove();
   });
   return removeBtn;
 }
@@ -469,25 +476,33 @@ inlineEl?.addEventListener("pointerdown", (event) => {
 
 canvasEl.addEventListener("pointerdown", (event) => {
   if (event.target.closest(".placed-inline")) return;
+  if (event.target.closest(".shape-color-picker")) return;
+  if (shapesApi?.onCanvasPointerDown(event.target)) return;
   if (
     event.target === canvasEl ||
     event.target === textureEl ||
     event.target === bananaLayerEl ||
+    event.target === shapeLayerEl ||
     event.target === layerEl
   ) {
     selectPlaced(null);
+    deselectShape();
   }
 });
 
 window.addEventListener("resize", () => positionInlineControls());
 if (typeof ResizeObserver !== "undefined" && canvasEl) {
-  const canvasResizeObserver = new ResizeObserver(() => positionInlineControls());
+  const canvasResizeObserver = new ResizeObserver(() => {
+    positionInlineControls();
+    shapesApi?.positionColorPicker?.();
+  });
   canvasResizeObserver.observe(canvasEl);
 }
 
 document.addEventListener("keydown", (event) => {
-  if (!selectedPlaced) return;
   if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+  if (shapesApi?.onKeydown(event)) return;
+  if (!selectedPlaced) return;
   if (event.key === "Delete" || event.key === "Backspace") {
     event.preventDefault();
     removePlaced(selectedPlaced);
@@ -562,6 +577,28 @@ async function boot() {
       placeBanana(clientX, clientY, DEFAULT_BANANA_BRUISE);
     });
   }
+
+  shapesApi = initShapes({
+    canvasEl,
+    shapeLayerEl,
+    shapesPanelEl: document.getElementById("shapes-panel"),
+    shapesToggleBtn: document.getElementById("shapes-toggle"),
+    shapesTrayWrapEl: document.getElementById("shapes-tray-wrap"),
+    shapesLibraryEl: document.getElementById("shape-library"),
+    colorPickerEl: document.getElementById("shape-color-picker"),
+    hsvSvEl: document.getElementById("hsv-sv"),
+    hsvHueEl: document.getElementById("hsv-hue"),
+    hsvSvPointer: document.getElementById("hsv-sv-pointer"),
+    hsvHuePointer: document.getElementById("hsv-hue-pointer"),
+    clamp,
+    bindLibraryPlaceThumb,
+    createRemoveButton,
+    clearOtherSelection: () => selectPlaced(null),
+    hideInlineForShape: () => {
+      if (inlineEl) inlineEl.hidden = true;
+    },
+    inlineOffsetPx: INLINE_CONTROLS_OFFSET_PX,
+  });
 
   preloadFrames();
 }

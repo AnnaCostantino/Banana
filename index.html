@@ -23,6 +23,7 @@
             />
           </div>
           <div id="banana-layer" class="banana-layer"></div>
+          <div id="shape-layer" class="shape-layer"></div>
           <div id="sticker-layer" class="sticker-layer"></div>
           <div
             class="placed-inline"
@@ -76,6 +77,20 @@
               </button>
             </div>
           </div>
+          <div
+            class="shape-color-picker"
+            id="shape-color-picker"
+            role="group"
+            aria-label="Shape color"
+            hidden
+          >
+            <div class="hsv-sv" id="hsv-sv" tabindex="0" aria-label="Saturation and brightness">
+              <span class="hsv-sv-pointer" id="hsv-sv-pointer" aria-hidden="true"></span>
+            </div>
+            <div class="hsv-hue" id="hsv-hue" tabindex="0" aria-label="Hue">
+              <span class="hsv-hue-pointer" id="hsv-hue-pointer" aria-hidden="true"></span>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -125,6 +140,23 @@
           </button>
           <div class="side-tool-tray-wrap" id="stickers-tray-wrap" hidden>
             <div class="side-tool-tray stickers-tray" id="sticker-library" role="list"></div>
+          </div>
+        </section>
+
+        <section class="side-tool-panel is-collapsed" id="shapes-panel">
+          <button
+            type="button"
+            class="side-tool-toggle"
+            id="shapes-toggle"
+            aria-expanded="false"
+            aria-controls="shapes-tray-wrap"
+          >
+            <span class="side-tool-toggle-spacer" aria-hidden="true"></span>
+            <span class="side-tool-title">Shapes</span>
+            <span class="side-tool-chevron" aria-hidden="true"></span>
+          </button>
+          <div class="side-tool-tray-wrap" id="shapes-tray-wrap" hidden>
+            <div class="side-tool-tray shapes-tray" id="shape-library" role="list"></div>
           </div>
         </section>
       </aside>
