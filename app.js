@@ -1,60 +1,108 @@
 const FRAME_COUNT = 31;
 const PLACE_SCALE_BOOST = 1.1;
+const DEFAULT_BANANA_BRUISE = 12;
+const POSTER_TEXTURE_SRC = "./textures/banana-poster-texture.jpg";
 
-const bananaEl = document.getElementById("banana");
+const textureEl = document.getElementById("poster-texture");
 const canvasEl = document.getElementById("canvas");
+const bananaLayerEl = document.getElementById("banana-layer");
 const layerEl = document.getElementById("sticker-layer");
 const libraryEl = document.getElementById("sticker-library");
-const minusBtn = document.getElementById("bruise-minus");
-const plusBtn = document.getElementById("bruise-plus");
-const inlineScaleEl = document.getElementById("sticker-scale-inline");
-const inlineScaleMinusBtn = document.getElementById("sticker-scale-inline-minus");
-const inlineScalePlusBtn = document.getElementById("sticker-scale-inline-plus");
+const bananaPlaceBtn = document.getElementById("banana-place");
+const bananaToolPreview = document.getElementById("banana-tool-preview");
+const inlineEl = document.getElementById("placed-inline");
+const inlineBruiseRow = document.getElementById("placed-inline-bruise");
+const inlineScaleMinusBtn = document.getElementById("inline-scale-minus");
+const inlineScalePlusBtn = document.getElementById("inline-scale-plus");
+const inlineBruiseMinusBtn = document.getElementById("inline-bruise-minus");
+const inlineBruisePlusBtn = document.getElementById("inline-bruise-plus");
 const stickersPanelEl = document.getElementById("stickers-panel");
 const stickersToggleBtn = document.getElementById("stickers-toggle");
 const stickersTrayWrapEl = document.getElementById("stickers-tray-wrap");
+const bananaPanelEl = document.getElementById("banana-panel");
+const bananaToggleBtn = document.getElementById("banana-toggle");
+const bananaTrayWrapEl = document.getElementById("banana-tray-wrap");
 
 const STICKER_USER_SCALE_MIN = 0.55;
 const STICKER_USER_SCALE_MAX = 2.5;
+const BANANA_USER_SCALE_MIN = 0.35;
+const BANANA_USER_SCALE_MAX = 2.2;
 /** Multiplicative step for ± size (buttons and [ ] keys). */
-const STICKER_USER_SCALE_STEP = 1.12;
-/** Gap between sticker bottom edge and inline ± row (screen px). */
-const STICKER_SCALE_INLINE_OFFSET_PX = 8;
+const USER_SCALE_STEP = 1.12;
+/** Gap between selection bottom edge and inline controls (screen px). */
+const INLINE_CONTROLS_OFFSET_PX = 8;
 
-let bruiseIndex = 0;
 let assets = { frames: [], stickers: [] };
 let dragState = null;
-let selectedSticker = null;
+let selectedPlaced = null;
 let stickersLibraryExpanded = false;
+let bananaToolExpanded = false;
+
+function setSideToolExpanded(panelEl, trayWrapEl, toggleBtn, expanded, expandedFlagRef) {
+  if (panelEl) {
+    panelEl.classList.toggle("is-collapsed", !expanded);
+    panelEl.classList.toggle("is-expanded", expanded);
+  }
+  if (trayWrapEl) trayWrapEl.hidden = !expanded;
+  if (toggleBtn) toggleBtn.setAttribute("aria-expanded", String(expanded));
+  return expanded;
+}
 
 function setStickersLibraryExpanded(expanded) {
-  stickersLibraryExpanded = expanded;
-  if (stickersPanelEl) {
-    stickersPanelEl.classList.toggle("is-collapsed", !expanded);
-    stickersPanelEl.classList.toggle("is-expanded", expanded);
-  }
-  if (stickersTrayWrapEl) stickersTrayWrapEl.hidden = !expanded;
-  if (stickersToggleBtn) {
-    stickersToggleBtn.setAttribute("aria-expanded", String(expanded));
-  }
+  stickersLibraryExpanded = setSideToolExpanded(
+    stickersPanelEl,
+    stickersTrayWrapEl,
+    stickersToggleBtn,
+    expanded,
+    stickersLibraryExpanded
+  );
+}
+
+function setBananaToolExpanded(expanded) {
+  bananaToolExpanded = setSideToolExpanded(
+    bananaPanelEl,
+    bananaTrayWrapEl,
+    bananaToggleBtn,
+    expanded,
+    bananaToolExpanded
+  );
 }
 
 function frameSrc(index) {
   return assets.frames[index] || `./frames/banana-${String(index).padStart(2, "0")}.png`;
 }
 
-function setBruise(next) {
-  bruiseIndex = Math.max(0, Math.min(FRAME_COUNT - 1, next));
-  bananaEl.src = frameSrc(bruiseIndex);
-  minusBtn.disabled = bruiseIndex <= 0;
-  plusBtn.disabled = bruiseIndex >= FRAME_COUNT - 1;
-}
-
 function preloadFrames() {
+  const poster = new Image();
+  poster.src = POSTER_TEXTURE_SRC;
   for (let i = 0; i < FRAME_COUNT; i += 1) {
     const img = new Image();
     img.src = frameSrc(i);
   }
+}
+
+function isBananaPlaced(el) {
+  return el?.classList?.contains("placed-banana");
+}
+
+function bruiseIndexFor(el) {
+  const v = parseInt(el?.dataset.bruiseIndex ?? String(DEFAULT_BANANA_BRUISE), 10);
+  return Number.isFinite(v) ? v : DEFAULT_BANANA_BRUISE;
+}
+
+function setBananaBruise(el, next) {
+  if (!isBananaPlaced(el)) return;
+  const index = Math.max(0, Math.min(FRAME_COUNT - 1, next));
+  el.dataset.bruiseIndex = String(index);
+  const img = el.querySelector(".placed-banana-img");
+  if (img) img.src = frameSrc(index);
+  syncInlineUi();
+}
+
+function scaleLimitsFor(el) {
+  return isBananaPlaced(el)
+    ? { min: BANANA_USER_SCALE_MIN, max: BANANA_USER_SCALE_MAX }
+    : { min: STICKER_USER_SCALE_MIN, max: STICKER_USER_SCALE_MAX };
 }
 
 function userScaleFor(el) {
@@ -63,77 +111,85 @@ function userScaleFor(el) {
 }
 
 function applyUserScale(el, nextScale) {
-  const scale = clamp(nextScale, STICKER_USER_SCALE_MIN, STICKER_USER_SCALE_MAX);
+  const { min, max } = scaleLimitsFor(el);
+  const scale = clamp(nextScale, min, max);
   el.dataset.userScale = String(scale);
-  el.style.setProperty("--sticker-user-scale", String(scale));
-  syncStickerSizeUi();
+  el.style.setProperty("--placed-user-scale", String(scale));
+  syncInlineUi();
 }
 
-function nudgeStickerScale(el, direction) {
+function nudgeUserScale(el, direction) {
   if (!el) return;
-  const factor = direction > 0 ? STICKER_USER_SCALE_STEP : 1 / STICKER_USER_SCALE_STEP;
+  const factor = direction > 0 ? USER_SCALE_STEP : 1 / USER_SCALE_STEP;
   applyUserScale(el, userScaleFor(el) * factor);
 }
 
-/** Pin inline ± under selected sticker using canvas-local % (tracks drag/scale/resize). */
-function positionStickerScaleInline() {
-  if (!inlineScaleEl) return;
-  if (!selectedSticker) {
-    inlineScaleEl.hidden = true;
+/** Pin inline controls under selection using canvas-local %. */
+function positionInlineControls() {
+  if (!inlineEl) return;
+  if (!selectedPlaced) {
+    inlineEl.hidden = true;
     return;
   }
 
   const canvasRect = canvasEl.getBoundingClientRect();
   if (!canvasRect.width || !canvasRect.height) {
-    inlineScaleEl.hidden = true;
+    inlineEl.hidden = true;
     return;
   }
 
-  const stickerRect = selectedSticker.getBoundingClientRect();
+  const targetRect = selectedPlaced.getBoundingClientRect();
   const centerX =
-    ((stickerRect.left + stickerRect.width / 2 - canvasRect.left) / canvasRect.width) * 100;
+    ((targetRect.left + targetRect.width / 2 - canvasRect.left) / canvasRect.width) * 100;
   const topY =
-    ((stickerRect.bottom - canvasRect.top + STICKER_SCALE_INLINE_OFFSET_PX) / canvasRect.height) *
-    100;
+    ((targetRect.bottom - canvasRect.top + INLINE_CONTROLS_OFFSET_PX) / canvasRect.height) * 100;
 
-  inlineScaleEl.style.left = `${centerX}%`;
-  inlineScaleEl.style.top = `${topY}%`;
-  inlineScaleEl.hidden = false;
+  inlineEl.style.left = `${centerX}%`;
+  inlineEl.style.top = `${topY}%`;
+  inlineEl.hidden = false;
 }
 
-function syncStickerSizeUi() {
-  const show = Boolean(selectedSticker);
+function syncInlineUi() {
+  const show = Boolean(selectedPlaced);
   if (!show) {
-    if (inlineScaleEl) inlineScaleEl.hidden = true;
+    if (inlineEl) inlineEl.hidden = true;
     return;
   }
-  const scale = userScaleFor(selectedSticker);
-  if (inlineScaleMinusBtn) {
-    inlineScaleMinusBtn.disabled = scale <= STICKER_USER_SCALE_MIN + 0.001;
+
+  const isBanana = isBananaPlaced(selectedPlaced);
+  if (inlineBruiseRow) inlineBruiseRow.hidden = !isBanana;
+
+  const { min, max } = scaleLimitsFor(selectedPlaced);
+  const scale = userScaleFor(selectedPlaced);
+  if (inlineScaleMinusBtn) inlineScaleMinusBtn.disabled = scale <= min + 0.001;
+  if (inlineScalePlusBtn) inlineScalePlusBtn.disabled = scale >= max - 0.001;
+
+  if (isBanana) {
+    const bruise = bruiseIndexFor(selectedPlaced);
+    if (inlineBruiseMinusBtn) inlineBruiseMinusBtn.disabled = bruise <= 0;
+    if (inlineBruisePlusBtn) inlineBruisePlusBtn.disabled = bruise >= FRAME_COUNT - 1;
   }
-  if (inlineScalePlusBtn) {
-    inlineScalePlusBtn.disabled = scale >= STICKER_USER_SCALE_MAX - 0.001;
-  }
-  positionStickerScaleInline();
+
+  positionInlineControls();
 }
 
-function selectSticker(el) {
-  if (selectedSticker === el) return;
-  if (selectedSticker) selectedSticker.classList.remove("is-selected");
-  selectedSticker = el;
-  if (selectedSticker) {
-    selectedSticker.classList.add("is-selected");
-    selectedSticker.focus({ preventScroll: true });
+function selectPlaced(el) {
+  if (selectedPlaced === el) return;
+  if (selectedPlaced) selectedPlaced.classList.remove("is-selected");
+  selectedPlaced = el;
+  if (selectedPlaced) {
+    selectedPlaced.classList.add("is-selected");
+    selectedPlaced.focus({ preventScroll: true });
   }
-  syncStickerSizeUi();
+  syncInlineUi();
 }
 
-function removeSticker(el) {
+function removePlaced(el) {
   if (!el) return;
-  if (selectedSticker === el) selectedSticker = null;
+  if (selectedPlaced === el) selectedPlaced = null;
   if (dragState?.el === el) dragState = null;
   el.remove();
-  syncStickerSizeUi();
+  syncInlineUi();
 }
 
 function placeScaleBoostForSticker(sticker) {
@@ -141,12 +197,71 @@ function placeScaleBoostForSticker(sticker) {
   return typeof boost === "number" && boost > 1 ? boost : 1;
 }
 
-function placeSticker(src, clientX, clientY, placeScaleBoost = 1) {
+function createRemoveButton(wrapper) {
+  const removeBtn = document.createElement("button");
+  removeBtn.type = "button";
+  removeBtn.className = "placed-remove";
+  removeBtn.setAttribute("aria-label", "Remove");
+  removeBtn.innerHTML = "<span aria-hidden=\"true\">×</span>";
+  removeBtn.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  });
+  removeBtn.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    removePlaced(wrapper);
+  });
+  return removeBtn;
+}
+
+function percentPositionFromClient(clientX, clientY) {
   const rect = canvasEl.getBoundingClientRect();
   const x = ((clientX - rect.left) / rect.width) * 100;
   const y = ((clientY - rect.top) / rect.height) * 100;
-  const left = clamp(x, 6, 94);
-  const top = clamp(y, 8, 92);
+  return {
+    left: clamp(x, 6, 94),
+    top: clamp(y, 8, 92),
+  };
+}
+
+function placeBanana(clientX, clientY, bruiseIndex = DEFAULT_BANANA_BRUISE) {
+  const { left, top } = percentPositionFromClient(clientX, clientY);
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "placed-banana";
+  wrapper.tabIndex = 0;
+  wrapper.setAttribute("role", "button");
+  wrapper.setAttribute(
+    "aria-label",
+    "Placed banana. Use inline Bruise and size controls. Press Delete to remove."
+  );
+  wrapper.style.left = `${left}%`;
+  wrapper.style.top = `${top}%`;
+  wrapper.dataset.x = String(left);
+  wrapper.dataset.y = String(top);
+  wrapper.dataset.userScale = "1";
+  wrapper.dataset.bruiseIndex = String(bruiseIndex);
+  wrapper.style.setProperty("--placed-user-scale", "1");
+
+  const img = document.createElement("img");
+  img.className = "placed-banana-img";
+  img.src = frameSrc(bruiseIndex);
+  img.alt = "Placed banana";
+  img.draggable = false;
+  img.width = 1512;
+  img.height = 865;
+
+  wrapper.appendChild(img);
+  wrapper.appendChild(createRemoveButton(wrapper));
+  bananaLayerEl.appendChild(wrapper);
+  bindPlacedDrag(wrapper);
+  selectPlaced(wrapper);
+  return wrapper;
+}
+
+function placeSticker(src, clientX, clientY, placeScaleBoost = 1) {
+  const { left, top } = percentPositionFromClient(clientX, clientY);
 
   const wrapper = document.createElement("div");
   wrapper.className = "placed-sticker";
@@ -160,7 +275,7 @@ function placeSticker(src, clientX, clientY, placeScaleBoost = 1) {
   wrapper.dataset.y = String(top);
   wrapper.dataset.userScale = "1";
   wrapper.dataset.placeScaleBoost = String(placeScaleBoost);
-  wrapper.style.setProperty("--sticker-user-scale", "1");
+  wrapper.style.setProperty("--placed-user-scale", "1");
   applyStickerPose(wrapper, left, top);
 
   const img = document.createElement("img");
@@ -169,26 +284,11 @@ function placeSticker(src, clientX, clientY, placeScaleBoost = 1) {
   img.alt = "Placed sticker";
   img.draggable = false;
 
-  const removeBtn = document.createElement("button");
-  removeBtn.type = "button";
-  removeBtn.className = "sticker-remove";
-  removeBtn.setAttribute("aria-label", "Remove sticker");
-  removeBtn.innerHTML = "<span aria-hidden=\"true\">×</span>";
-  removeBtn.addEventListener("pointerdown", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-  });
-  removeBtn.addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    removeSticker(wrapper);
-  });
-
   wrapper.appendChild(img);
-  wrapper.appendChild(removeBtn);
+  wrapper.appendChild(createRemoveButton(wrapper));
   layerEl.appendChild(wrapper);
   bindPlacedDrag(wrapper);
-  selectSticker(wrapper);
+  selectPlaced(wrapper);
   return wrapper;
 }
 
@@ -196,7 +296,7 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-/** Subtle curve + jitter so stickers read as stuck on the banana, not flat overlays. */
+/** Subtle curve + jitter so stickers read as stuck on the poster, not flat overlays. */
 function applyStickerPose(el, xPercent, yPercent) {
   let jitter = parseFloat(el.dataset.jitter || "");
   if (Number.isNaN(jitter)) {
@@ -214,10 +314,10 @@ function applyStickerPose(el, xPercent, yPercent) {
 function bindPlacedDrag(el) {
   const onPointerDown = (event) => {
     if (event.button != null && event.button !== 0) return;
-    if (event.target.closest(".sticker-remove")) return;
-    if (event.target.closest(".sticker-scale-inline")) return;
+    if (event.target.closest(".placed-remove")) return;
+    if (event.target.closest(".placed-inline")) return;
     event.preventDefault();
-    selectSticker(el);
+    selectPlaced(el);
     el.setPointerCapture(event.pointerId);
     el.classList.add("is-dragging");
     dragState = {
@@ -241,21 +341,82 @@ function bindPlacedDrag(el) {
     el.style.top = `${y}%`;
     el.dataset.x = String(x);
     el.dataset.y = String(y);
-    applyStickerPose(el, x, y);
-    if (selectedSticker === el) positionStickerScaleInline();
+    if (!isBananaPlaced(el)) applyStickerPose(el, x, y);
+    if (selectedPlaced === el) positionInlineControls();
   };
 
   const onPointerUp = (event) => {
     if (!dragState || dragState.el !== el || dragState.pointerId !== event.pointerId) return;
     el.classList.remove("is-dragging");
     dragState = null;
-    if (selectedSticker === el) positionStickerScaleInline();
+    if (selectedPlaced === el) positionInlineControls();
   };
 
   el.addEventListener("pointerdown", onPointerDown);
   el.addEventListener("pointermove", onPointerMove);
   el.addEventListener("pointerup", onPointerUp);
   el.addEventListener("pointercancel", onPointerUp);
+}
+
+function bindLibraryPlaceThumb(button, onPlace) {
+  button.addEventListener("pointerdown", (event) => {
+    if (event.button != null && event.button !== 0) return;
+    event.preventDefault();
+
+    const startX = event.clientX;
+    const startY = event.clientY;
+    let dragged = false;
+    let ghost = null;
+
+    const move = (ev) => {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      if (!dragged && dx * dx + dy * dy > 36) {
+        dragged = true;
+        ghost = button.cloneNode(true);
+        ghost.style.position = "fixed";
+        const ghostSize = 96;
+        ghost.style.left = `${ev.clientX - ghostSize / 2}px`;
+        ghost.style.top = `${ev.clientY - ghostSize / 2}px`;
+        ghost.style.width = `${ghostSize}px`;
+        ghost.style.height = `${ghostSize}px`;
+        ghost.style.opacity = "0.9";
+        ghost.style.pointerEvents = "none";
+        ghost.style.zIndex = "1000";
+        document.body.appendChild(ghost);
+      }
+      if (ghost) {
+        const ghostW = parseFloat(ghost.style.width) || 96;
+        ghost.style.left = `${ev.clientX - ghostW / 2}px`;
+        ghost.style.top = `${ev.clientY - ghostW / 2}px`;
+      }
+    };
+
+    const up = (ev) => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      if (ghost) ghost.remove();
+
+      const rect = canvasEl.getBoundingClientRect();
+      if (dragged) {
+        const over =
+          ev.clientX >= rect.left &&
+          ev.clientX <= rect.right &&
+          ev.clientY >= rect.top &&
+          ev.clientY <= rect.bottom;
+        if (over) onPlace(ev.clientX, ev.clientY);
+        return;
+      }
+
+      onPlace(
+        rect.left + rect.width * (0.45 + Math.random() * 0.1),
+        rect.top + rect.height * (0.42 + Math.random() * 0.12)
+      );
+    };
+
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  });
 }
 
 function renderLibrary(stickers) {
@@ -275,120 +436,73 @@ function renderLibrary(stickers) {
     img.draggable = false;
     button.appendChild(img);
 
-    button.addEventListener("pointerdown", (event) => {
-      if (event.button != null && event.button !== 0) return;
-      event.preventDefault();
-
-      const startX = event.clientX;
-      const startY = event.clientY;
-      let dragged = false;
-      let ghost = null;
-
-      const move = (ev) => {
-        const dx = ev.clientX - startX;
-        const dy = ev.clientY - startY;
-        if (!dragged && dx * dx + dy * dy > 36) {
-          dragged = true;
-          const boost = placeScaleBoostForSticker(sticker);
-          const ghostSize = Math.round(62 * boost);
-          const ghostOffset = ghostSize / 2;
-          ghost = button.cloneNode(true);
-          ghost.style.position = "fixed";
-          ghost.style.left = `${ev.clientX - ghostOffset}px`;
-          ghost.style.top = `${ev.clientY - ghostOffset}px`;
-          ghost.style.width = `${ghostSize}px`;
-          ghost.style.height = `${ghostSize}px`;
-          ghost.style.opacity = "0.9";
-          ghost.style.pointerEvents = "none";
-          ghost.style.zIndex = "1000";
-          document.body.appendChild(ghost);
-        }
-        if (ghost) {
-          const ghostW = parseFloat(ghost.style.width) || 62;
-          const ghostOffset = ghostW / 2;
-          ghost.style.left = `${ev.clientX - ghostOffset}px`;
-          ghost.style.top = `${ev.clientY - ghostOffset}px`;
-        }
-      };
-
-      const up = (ev) => {
-        window.removeEventListener("pointermove", move);
-        window.removeEventListener("pointerup", up);
-        if (ghost) ghost.remove();
-
-        const rect = canvasEl.getBoundingClientRect();
-        if (dragged) {
-          const over =
-            ev.clientX >= rect.left &&
-            ev.clientX <= rect.right &&
-            ev.clientY >= rect.top &&
-            ev.clientY <= rect.bottom;
-          if (over) {
-            placeSticker(sticker.src, ev.clientX, ev.clientY, placeScaleBoostForSticker(sticker));
-          }
-          return;
-        }
-
-        // Click: drop near center of banana
-        placeSticker(
-          sticker.src,
-          rect.left + rect.width * (0.45 + Math.random() * 0.2),
-          rect.top + rect.height * (0.4 + Math.random() * 0.25),
-          placeScaleBoostForSticker(sticker)
-        );
-      };
-
-      window.addEventListener("pointermove", move);
-      window.addEventListener("pointerup", up);
+    bindLibraryPlaceThumb(button, (clientX, clientY) => {
+      placeSticker(sticker.src, clientX, clientY, placeScaleBoostForSticker(sticker));
     });
 
     libraryEl.appendChild(button);
   });
 }
 
-minusBtn.addEventListener("click", () => setBruise(bruiseIndex - 1));
-plusBtn.addEventListener("click", () => setBruise(bruiseIndex + 1));
 stickersToggleBtn?.addEventListener("click", () => {
   setStickersLibraryExpanded(!stickersLibraryExpanded);
 });
-inlineScaleMinusBtn?.addEventListener("click", () => nudgeStickerScale(selectedSticker, -1));
-inlineScalePlusBtn?.addEventListener("click", () => nudgeStickerScale(selectedSticker, 1));
-inlineScaleEl?.addEventListener("pointerdown", (event) => {
+bananaToggleBtn?.addEventListener("click", () => {
+  setBananaToolExpanded(!bananaToolExpanded);
+});
+
+inlineScaleMinusBtn?.addEventListener("click", () => nudgeUserScale(selectedPlaced, -1));
+inlineScalePlusBtn?.addEventListener("click", () => nudgeUserScale(selectedPlaced, 1));
+inlineBruiseMinusBtn?.addEventListener("click", () => {
+  if (selectedPlaced && isBananaPlaced(selectedPlaced)) {
+    setBananaBruise(selectedPlaced, bruiseIndexFor(selectedPlaced) - 1);
+  }
+});
+inlineBruisePlusBtn?.addEventListener("click", () => {
+  if (selectedPlaced && isBananaPlaced(selectedPlaced)) {
+    setBananaBruise(selectedPlaced, bruiseIndexFor(selectedPlaced) + 1);
+  }
+});
+inlineEl?.addEventListener("pointerdown", (event) => {
   event.stopPropagation();
 });
 
 canvasEl.addEventListener("pointerdown", (event) => {
-  if (event.target.closest(".sticker-scale-inline")) return;
-  if (event.target === canvasEl || event.target === bananaEl || event.target === layerEl) {
-    selectSticker(null);
+  if (event.target.closest(".placed-inline")) return;
+  if (
+    event.target === canvasEl ||
+    event.target === textureEl ||
+    event.target === bananaLayerEl ||
+    event.target === layerEl
+  ) {
+    selectPlaced(null);
   }
 });
 
-window.addEventListener("resize", () => positionStickerScaleInline());
+window.addEventListener("resize", () => positionInlineControls());
 if (typeof ResizeObserver !== "undefined" && canvasEl) {
-  const canvasResizeObserver = new ResizeObserver(() => positionStickerScaleInline());
+  const canvasResizeObserver = new ResizeObserver(() => positionInlineControls());
   canvasResizeObserver.observe(canvasEl);
 }
 
 document.addEventListener("keydown", (event) => {
-  if (!selectedSticker) return;
+  if (!selectedPlaced) return;
   if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
   if (event.key === "Delete" || event.key === "Backspace") {
     event.preventDefault();
-    removeSticker(selectedSticker);
+    removePlaced(selectedPlaced);
   }
   if (event.key === "Escape") {
     event.preventDefault();
-    selectSticker(null);
+    selectPlaced(null);
   }
-  // [ / ] resize selected sticker (bruise has no key bindings).
   if (event.key === "[" || event.key === "{") {
     event.preventDefault();
-    nudgeStickerScale(selectedSticker, -1);
+    nudgeUserScale(selectedPlaced, -1);
   }
   if (event.key === "]" || event.key === "}") {
     event.preventDefault();
-    nudgeStickerScale(selectedSticker, 1);
+    nudgeUserScale(selectedPlaced, 1);
   }
 });
 
@@ -429,16 +543,26 @@ async function boot() {
     };
   }
 
-  // Normalize relative paths
   assets.frames = assets.frames.map((f) => (f.startsWith("./") ? f : `./${f}`));
   assets.stickers = assets.stickers.map((s) => ({
     ...s,
     src: s.src.startsWith("./") ? s.src : `./${s.src}`,
   }));
 
+  if (bananaToolPreview) {
+    bananaToolPreview.src = frameSrc(DEFAULT_BANANA_BRUISE);
+  }
+
   renderLibrary(assets.stickers);
   setStickersLibraryExpanded(false);
-  setBruise(12);
+  setBananaToolExpanded(false);
+
+  if (bananaPlaceBtn) {
+    bindLibraryPlaceThumb(bananaPlaceBtn, (clientX, clientY) => {
+      placeBanana(clientX, clientY, DEFAULT_BANANA_BRUISE);
+    });
+  }
+
   preloadFrames();
 }
 
