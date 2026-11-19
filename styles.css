@@ -65,11 +65,10 @@ button {
 
 .canvas {
   position: relative;
-  width: min(100%, min(84vh * 0.776, 640px));
-  aspect-ratio: 1552 / 2000;
+  width: min(100%, min(92vw, 960px));
+  aspect-ratio: 20400 / 14040;
   user-select: none;
   touch-action: none;
-  border-radius: clamp(18px, 2.5vw, 28px);
   overflow: hidden;
   background: #f4df3a;
   box-shadow: 0 18px 48px rgba(16, 85, 168, 0.1);
@@ -89,7 +88,7 @@ button {
   width: 100%;
   height: 100%;
   margin: 0;
-  object-fit: cover;
+  object-fit: contain;
   object-position: center center;
   pointer-events: none;
   z-index: 0;
@@ -561,6 +560,6 @@ button {
 
   .canvas {
     width: min(100%, 420px);
-    aspect-ratio: 1552 / 2000;
+    aspect-ratio: 20400 / 14040;
   }
 }
