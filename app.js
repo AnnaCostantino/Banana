@@ -1,6 +1,14 @@
 import { initShapes, deselectShape } from "./shapes.js";
 import { applyRotation, bindRotationHandle, createRotationHandle } from "./rotation.js";
 import { exportCollage } from "./export.js";
+import {
+  applyBBox,
+  bindBBoxElement,
+  bboxFromCenter,
+  clearBboxDragIf,
+  createBBoxHandles,
+  stickerPoseCenter,
+} from "./bbox.js";
 
 const FRAME_COUNT = 31;
 const PLACE_SCALE_BOOST = 1.1;
@@ -17,8 +25,6 @@ const bananaPlaceBtn = document.getElementById("banana-place");
 const bananaToolPreview = document.getElementById("banana-tool-preview");
 const inlineEl = document.getElementById("placed-inline");
 const inlineBruiseRow = document.getElementById("placed-inline-bruise");
-const inlineScaleMinusBtn = document.getElementById("inline-scale-minus");
-const inlineScalePlusBtn = document.getElementById("inline-scale-plus");
 const inlineBruiseMinusBtn = document.getElementById("inline-bruise-minus");
 const inlineBruisePlusBtn = document.getElementById("inline-bruise-plus");
 const stickersPanelEl = document.getElementById("stickers-panel");
@@ -28,17 +34,13 @@ const bananaPanelEl = document.getElementById("banana-panel");
 const bananaToggleBtn = document.getElementById("banana-toggle");
 const bananaTrayWrapEl = document.getElementById("banana-tray-wrap");
 
-const STICKER_USER_SCALE_MIN = 0.55;
-const STICKER_USER_SCALE_MAX = 2.5;
-const BANANA_USER_SCALE_MIN = 0.35;
-const BANANA_USER_SCALE_MAX = 2.2;
-/** Multiplicative step for ± size (buttons and [ ] keys). */
-const USER_SCALE_STEP = 1.12;
 /** Gap between selection bottom edge and inline controls (screen px). */
 const INLINE_CONTROLS_OFFSET_PX = 8;
+const BANANA_PLACE_W_PCT = 24;
+const BANANA_IMG_ASPECT = 1512 / 865;
+const STICKER_PLACE_W_PCT = 12;
 
 let assets = { frames: [], stickers: [] };
-let dragState = null;
 let selectedPlaced = null;
 let stickersLibraryExpanded = false;
 let bananaToolExpanded = false;
@@ -106,29 +108,22 @@ function setBananaBruise(el, next) {
   syncInlineUi();
 }
 
-function scaleLimitsFor(el) {
-  return isBananaPlaced(el)
-    ? { min: BANANA_USER_SCALE_MIN, max: BANANA_USER_SCALE_MAX }
-    : { min: STICKER_USER_SCALE_MIN, max: STICKER_USER_SCALE_MAX };
+function onPlacedBBoxUpdate(el) {
+  if (!isBananaPlaced(el)) {
+    const { x, y } = stickerPoseCenter(el);
+    applyStickerPose(el, x, y);
+  }
+  if (selectedPlaced === el) positionInlineControls();
 }
 
-function userScaleFor(el) {
-  const v = parseFloat(el?.dataset.userScale ?? "1");
-  return Number.isFinite(v) ? v : 1;
-}
-
-function applyUserScale(el, nextScale) {
-  const { min, max } = scaleLimitsFor(el);
-  const scale = clamp(nextScale, min, max);
-  el.dataset.userScale = String(scale);
-  el.style.setProperty("--placed-user-scale", String(scale));
-  syncInlineUi();
-}
-
-function nudgeUserScale(el, direction) {
-  if (!el) return;
-  const factor = direction > 0 ? USER_SCALE_STEP : 1 / USER_SCALE_STEP;
-  applyUserScale(el, userScaleFor(el) * factor);
+function bindPlacedBBox(el) {
+  bindBBoxElement(el, {
+    canvasEl,
+    clamp,
+    aspectLock: true,
+    onSelect: () => selectPlaced(el),
+    onUpdate: onPlacedBBoxUpdate,
+  });
 }
 
 /** Pin inline controls under selection using canvas-local %. */
@@ -166,11 +161,6 @@ function syncInlineUi() {
   const isBanana = isBananaPlaced(selectedPlaced);
   if (inlineBruiseRow) inlineBruiseRow.hidden = !isBanana;
 
-  const { min, max } = scaleLimitsFor(selectedPlaced);
-  const scale = userScaleFor(selectedPlaced);
-  if (inlineScaleMinusBtn) inlineScaleMinusBtn.disabled = scale <= min + 0.001;
-  if (inlineScalePlusBtn) inlineScalePlusBtn.disabled = scale >= max - 0.001;
-
   if (isBanana) {
     const bruise = bruiseIndexFor(selectedPlaced);
     if (inlineBruiseMinusBtn) inlineBruiseMinusBtn.disabled = bruise <= 0;
@@ -195,7 +185,7 @@ function selectPlaced(el) {
 function removePlaced(el) {
   if (!el) return;
   if (selectedPlaced === el) selectedPlaced = null;
-  if (dragState?.el === el) dragState = null;
+  clearBboxDragIf(el);
   el.remove();
   syncInlineUi();
 }
@@ -246,6 +236,9 @@ function percentPositionFromClient(clientX, clientY) {
 
 function placeBanana(clientX, clientY, bruiseIndex = DEFAULT_BANANA_BRUISE) {
   const { left, top } = percentPositionFromClient(clientX, clientY);
+  const w = BANANA_PLACE_W_PCT;
+  const h = w / BANANA_IMG_ASPECT;
+  const box = bboxFromCenter(left, top, w, h, clamp);
 
   const wrapper = document.createElement("div");
   wrapper.className = "placed-banana";
@@ -253,15 +246,14 @@ function placeBanana(clientX, clientY, bruiseIndex = DEFAULT_BANANA_BRUISE) {
   wrapper.setAttribute("role", "button");
   wrapper.setAttribute(
     "aria-label",
-    "Placed banana. Use inline Bruise and size controls. Press Delete to remove."
+    "Placed banana. Drag to move. Use handles to resize. Bruise inline. Press Delete to remove."
   );
-  wrapper.style.left = `${left}%`;
-  wrapper.style.top = `${top}%`;
-  wrapper.dataset.x = String(left);
-  wrapper.dataset.y = String(top);
-  wrapper.dataset.userScale = "1";
+  wrapper.dataset.x = String(box.x);
+  wrapper.dataset.y = String(box.y);
+  wrapper.dataset.w = String(box.w);
+  wrapper.dataset.h = String(box.h);
+  wrapper.dataset.aspect = String(BANANA_IMG_ASPECT);
   wrapper.dataset.bruiseIndex = String(bruiseIndex);
-  wrapper.style.setProperty("--placed-user-scale", "1");
 
   const img = document.createElement("img");
   img.className = "placed-banana-img";
@@ -272,33 +264,38 @@ function placeBanana(clientX, clientY, bruiseIndex = DEFAULT_BANANA_BRUISE) {
   img.height = 865;
 
   wrapper.appendChild(img);
-  wrapper.appendChild(createRemoveButton(wrapper));
+  wrapper.appendChild(createBBoxHandles());
   attachRotationHandle(wrapper, () => {
     positionInlineControls();
   });
+  wrapper.appendChild(createRemoveButton(wrapper));
+  applyBBox(wrapper);
   bananaLayerEl.appendChild(wrapper);
-  bindPlacedDrag(wrapper);
+  bindPlacedBBox(wrapper);
   selectPlaced(wrapper);
   return wrapper;
 }
 
 function placeSticker(src, clientX, clientY, placeScaleBoost = 1) {
   const { left, top } = percentPositionFromClient(clientX, clientY);
+  const w = STICKER_PLACE_W_PCT * placeScaleBoost;
+  let h = w;
+  const box = bboxFromCenter(left, top, w, h, clamp);
 
   const wrapper = document.createElement("div");
   wrapper.className = "placed-sticker";
-  if (placeScaleBoost > 1) wrapper.classList.add("placed-sticker--scale-boost");
   wrapper.tabIndex = 0;
   wrapper.setAttribute("role", "button");
-  wrapper.setAttribute("aria-label", "Placed sticker. Press Delete to remove.");
-  wrapper.style.left = `${left}%`;
-  wrapper.style.top = `${top}%`;
-  wrapper.dataset.x = String(left);
-  wrapper.dataset.y = String(top);
-  wrapper.dataset.userScale = "1";
+  wrapper.setAttribute(
+    "aria-label",
+    "Placed sticker. Drag to move. Use handles to resize. Press Delete to remove."
+  );
+  wrapper.dataset.x = String(box.x);
+  wrapper.dataset.y = String(box.y);
+  wrapper.dataset.w = String(box.w);
+  wrapper.dataset.h = String(box.h);
+  wrapper.dataset.aspect = "1";
   wrapper.dataset.placeScaleBoost = String(placeScaleBoost);
-  wrapper.style.setProperty("--placed-user-scale", "1");
-  applyStickerPose(wrapper, left, top);
 
   const img = document.createElement("img");
   img.className = "placed-sticker-img";
@@ -306,13 +303,30 @@ function placeSticker(src, clientX, clientY, placeScaleBoost = 1) {
   img.alt = "Placed sticker";
   img.draggable = false;
 
+  const syncStickerAspect = () => {
+    if (!img.naturalWidth || !img.naturalHeight) return;
+    const aspect = img.naturalWidth / img.naturalHeight;
+    wrapper.dataset.aspect = String(aspect);
+    const curW = parseFloat(wrapper.dataset.w);
+    wrapper.dataset.h = String(curW / aspect);
+    applyBBox(wrapper);
+    onPlacedBBoxUpdate(wrapper);
+  };
+  img.addEventListener("load", syncStickerAspect);
+  if (img.complete) syncStickerAspect();
+
+  const { x, y } = stickerPoseCenter(wrapper);
+  applyStickerPose(wrapper, x, y);
+
   wrapper.appendChild(img);
-  wrapper.appendChild(createRemoveButton(wrapper));
+  wrapper.appendChild(createBBoxHandles());
   attachRotationHandle(wrapper, () => {
     positionInlineControls();
   });
+  wrapper.appendChild(createRemoveButton(wrapper));
+  applyBBox(wrapper);
   layerEl.appendChild(wrapper);
-  bindPlacedDrag(wrapper);
+  bindPlacedBBox(wrapper);
   selectPlaced(wrapper);
   return wrapper;
 }
@@ -334,54 +348,6 @@ function applyStickerPose(el, xPercent, yPercent) {
   el.style.setProperty("--sticker-rz", `${rotateZ.toFixed(2)}deg`);
   el.style.setProperty("--sticker-ry", `${rotateY.toFixed(2)}deg`);
   el.style.setProperty("--sticker-skew", `${skewX.toFixed(2)}deg`);
-}
-
-function bindPlacedDrag(el) {
-  const onPointerDown = (event) => {
-    if (event.button != null && event.button !== 0) return;
-    if (event.target.closest(".placed-remove")) return;
-    if (event.target.closest(".placed-inline")) return;
-    if (event.target.closest(".rotation-handle")) return;
-    event.preventDefault();
-    selectPlaced(el);
-    el.setPointerCapture(event.pointerId);
-    el.classList.add("is-dragging");
-    dragState = {
-      el,
-      pointerId: event.pointerId,
-      moved: false,
-      startX: event.clientX,
-      startY: event.clientY,
-    };
-  };
-
-  const onPointerMove = (event) => {
-    if (!dragState || dragState.el !== el || dragState.pointerId !== event.pointerId) return;
-    const dx = event.clientX - dragState.startX;
-    const dy = event.clientY - dragState.startY;
-    if (!dragState.moved && dx * dx + dy * dy > 9) dragState.moved = true;
-    const rect = canvasEl.getBoundingClientRect();
-    const x = clamp(((event.clientX - rect.left) / rect.width) * 100, 4, 96);
-    const y = clamp(((event.clientY - rect.top) / rect.height) * 100, 4, 96);
-    el.style.left = `${x}%`;
-    el.style.top = `${y}%`;
-    el.dataset.x = String(x);
-    el.dataset.y = String(y);
-    if (!isBananaPlaced(el)) applyStickerPose(el, x, y);
-    if (selectedPlaced === el) positionInlineControls();
-  };
-
-  const onPointerUp = (event) => {
-    if (!dragState || dragState.el !== el || dragState.pointerId !== event.pointerId) return;
-    el.classList.remove("is-dragging");
-    dragState = null;
-    if (selectedPlaced === el) positionInlineControls();
-  };
-
-  el.addEventListener("pointerdown", onPointerDown);
-  el.addEventListener("pointermove", onPointerMove);
-  el.addEventListener("pointerup", onPointerUp);
-  el.addEventListener("pointercancel", onPointerUp);
 }
 
 function bindLibraryPlaceThumb(button, onPlace) {
@@ -526,8 +492,6 @@ exportDownloadBtn?.addEventListener("click", async () => {
   }
 });
 
-inlineScaleMinusBtn?.addEventListener("click", () => nudgeUserScale(selectedPlaced, -1));
-inlineScalePlusBtn?.addEventListener("click", () => nudgeUserScale(selectedPlaced, 1));
 inlineBruiseMinusBtn?.addEventListener("click", () => {
   if (selectedPlaced && isBananaPlaced(selectedPlaced)) {
     setBananaBruise(selectedPlaced, bruiseIndexFor(selectedPlaced) - 1);
@@ -578,14 +542,6 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     event.preventDefault();
     selectPlaced(null);
-  }
-  if (event.key === "[" || event.key === "{") {
-    event.preventDefault();
-    nudgeUserScale(selectedPlaced, -1);
-  }
-  if (event.key === "]" || event.key === "}") {
-    event.preventDefault();
-    nudgeUserScale(selectedPlaced, 1);
   }
 });
 

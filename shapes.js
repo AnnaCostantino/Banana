@@ -1,13 +1,16 @@
 import { applyRotation, bindRotationHandle, createRotationHandle } from "./rotation.js";
+import {
+  applyBBox as applyShapeBox,
+  bindBBoxElement,
+  clearBboxDragIf,
+  createBBoxHandles as createHandleBox,
+} from "./bbox.js";
 
 const SHAPE_TYPES = ["rectangle", "ellipse", "triangle"];
 const DEFAULT_SHAPE_FILL = "#1055A8";
-const MIN_SHAPE_PCT = 3;
-
 /** @type {import('./shapes.js').ShapeApi | null} */
 let api = null;
 let selectedShape = null;
-let shapeDragState = null;
 let shapesLibraryExpanded = false;
 
 let shapeLayerEl;
@@ -182,34 +185,6 @@ function shapeGraphicSvg(type) {
   return svg;
 }
 
-const HANDLE_IDS = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
-
-function createHandleBox() {
-  const box = document.createElement("div");
-  box.className = "shape-handles";
-  HANDLE_IDS.forEach((id) => {
-    const handle = document.createElement("button");
-    handle.type = "button";
-    handle.className = `shape-handle shape-handle--${id}`;
-    handle.dataset.handle = id;
-    handle.setAttribute("aria-label", `Resize ${id}`);
-    handle.addEventListener("pointerdown", (event) => startShapeResize(event, handle));
-    box.appendChild(handle);
-  });
-  return box;
-}
-
-function applyShapeBox(el) {
-  const w = parseFloat(el.dataset.w);
-  const h = parseFloat(el.dataset.h);
-  const x = parseFloat(el.dataset.x);
-  const y = parseFloat(el.dataset.y);
-  el.style.left = `${x}%`;
-  el.style.top = `${y}%`;
-  el.style.width = `${w}%`;
-  el.style.height = `${h}%`;
-}
-
 function placeShape(type, clientX, clientY) {
   const rect = api.canvasEl.getBoundingClientRect();
   const w = 22;
@@ -254,131 +229,19 @@ function placeShape(type, clientX, clientY) {
 function removeShape(el) {
   if (!el) return;
   if (selectedShape === el) deselectShape();
-  if (shapeDragState?.el === el) shapeDragState = null;
+  clearBboxDragIf(el);
   el.remove();
 }
 
-function startShapeMove(event, el) {
-  if (event.button != null && event.button !== 0) return;
-  if (event.target.closest(".shape-handle")) return;
-  if (event.target.closest(".rotation-handle")) return;
-  if (event.target.closest(".placed-remove")) return;
-  event.preventDefault();
-  selectShape(el);
-  el.classList.add("is-dragging");
-  shapeDragState = {
-    mode: "move",
-    el,
-    pointerId: event.pointerId,
-    startX: event.clientX,
-    startY: event.clientY,
-    origX: parseFloat(el.dataset.x),
-    origY: parseFloat(el.dataset.y),
-  };
-}
-
-function startShapeResize(event, handle) {
-  const el = handle.closest(".placed-shape");
-  if (!el) return;
-  event.preventDefault();
-  event.stopPropagation();
-  selectShape(el);
-  shapeDragState = {
-    mode: "resize",
-    el,
-    pointerId: event.pointerId,
-    handle: handle.dataset.handle,
-    startX: event.clientX,
-    startY: event.clientY,
-    origX: parseFloat(el.dataset.x),
-    origY: parseFloat(el.dataset.y),
-    origW: parseFloat(el.dataset.w),
-    origH: parseFloat(el.dataset.h),
-    uniform: event.shiftKey,
-  };
-}
-
-function onShapePointerMove(event) {
-  if (!shapeDragState || shapeDragState.pointerId !== event.pointerId) return;
-  const rect = api.canvasEl.getBoundingClientRect();
-  const dxPct = ((event.clientX - shapeDragState.startX) / rect.width) * 100;
-  const dyPct = ((event.clientY - shapeDragState.startY) / rect.height) * 100;
-  const el = shapeDragState.el;
-
-  if (shapeDragState.mode === "move") {
-    const w = parseFloat(el.dataset.w);
-    const h = parseFloat(el.dataset.h);
-    const x = api.clamp(shapeDragState.origX + dxPct, 2, 98 - w);
-    const y = api.clamp(shapeDragState.origY + dyPct, 2, 98 - h);
-    el.dataset.x = String(x);
-    el.dataset.y = String(y);
-    applyShapeBox(el);
-    positionColorPicker();
-    return;
-  }
-
-  const { handle, origX, origY, origW, origH } = shapeDragState;
-  let x = origX;
-  let y = origY;
-  let w = origW;
-  let h = origH;
-  const shift = event.shiftKey || shapeDragState.uniform;
-
-  if (handle.includes("e")) w = Math.max(MIN_SHAPE_PCT, origW + dxPct);
-  if (handle.includes("w")) {
-    w = Math.max(MIN_SHAPE_PCT, origW - dxPct);
-    x = origX + (origW - w);
-  }
-  if (handle.includes("s")) h = Math.max(MIN_SHAPE_PCT, origH + dyPct);
-  if (handle.includes("n")) {
-    h = Math.max(MIN_SHAPE_PCT, origH - dyPct);
-    y = origY + (origH - h);
-  }
-
-  if (shift) {
-    const avg = (w + h) / 2;
-    w = avg;
-    h = avg;
-    if (handle.includes("w")) x = origX + origW - w;
-    if (handle.includes("n")) y = origY + origH - h;
-  }
-
-  x = api.clamp(x, 2, 98 - w);
-  y = api.clamp(y, 2, 98 - h);
-
-  el.dataset.x = String(x);
-  el.dataset.y = String(y);
-  el.dataset.w = String(w);
-  el.dataset.h = String(h);
-  applyShapeBox(el);
-  positionColorPicker();
-}
-
-function onShapePointerUp(event) {
-  if (!shapeDragState || shapeDragState.pointerId !== event.pointerId) return;
-  shapeDragState.el.classList.remove("is-dragging");
-  shapeDragState = null;
-}
-
 function bindShapeInteractions(el) {
-  el.addEventListener("pointerdown", (event) => startShapeMove(event, el));
+  bindBBoxElement(el, {
+    canvasEl: api.canvasEl,
+    clamp: api.clamp,
+    aspectLock: false,
+    onSelect: () => selectShape(el),
+    onUpdate: () => positionColorPicker(),
+  });
 }
-
-window.addEventListener("pointermove", (event) => {
-  if (shapeDragState) onShapePointerMove(event);
-});
-
-window.addEventListener("pointerup", (event) => {
-  if (shapeDragState && shapeDragState.pointerId === event.pointerId) {
-    onShapePointerUp(event);
-  }
-});
-
-window.addEventListener("pointercancel", (event) => {
-  if (shapeDragState && shapeDragState.pointerId === event.pointerId) {
-    onShapePointerUp(event);
-  }
-});
 
 function shapePreviewIcon(type) {
   const svg = shapeGraphicSvg(type);
