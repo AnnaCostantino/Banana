@@ -65,8 +65,8 @@ button {
 
 .canvas {
   position: relative;
-  width: min(100%, min(92vw, 960px));
-  aspect-ratio: 20400 / 14040;
+  width: min(100%, min(84vh * 9813 / 12597, 640px));
+  aspect-ratio: 9813 / 12597;
   user-select: none;
   touch-action: none;
   overflow: hidden;
@@ -560,6 +560,6 @@ button {
 
   .canvas {
     width: min(100%, 420px);
-    aspect-ratio: 20400 / 14040;
+    aspect-ratio: 9813 / 12597;
   }
 }
