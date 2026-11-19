@@ -23,7 +23,7 @@ npx --yes serve . -l 4173
 Static HTML / CSS / JS. No backend.
 
 - Typeface: **Apfel Grotezk** (`fonts/ApfelGrotezk-Mittel.otf`)
-- Poster texture: `textures/banana-poster-texture.jpg` (exported 4800×3303 from Anna’s 20400×14040 master, ~4.7 MB JPEG q88)
+- Poster texture: `textures/banana-poster-texture.jpg` (3739×4800 export from Anna’s 9813×12597 master, progressive JPEG q88)
 - Ripeness frames: `frames/banana-00.png` … `banana-30.png` (per placed banana via inline Bruise)
 - Stickers: `stickers/*.png`
 
