@@ -1,3 +1,5 @@
+import { applyRotation, bindRotationHandle, createRotationHandle } from "./rotation.js";
+
 const SHAPE_TYPES = ["rectangle", "ellipse", "triangle"];
 const DEFAULT_SHAPE_FILL = "#1055A8";
 const MIN_SHAPE_PCT = 3;
@@ -233,8 +235,15 @@ function placeShape(type, clientX, clientY) {
   graphic.style.color = DEFAULT_SHAPE_FILL;
   wrapper.appendChild(graphic);
   wrapper.appendChild(createHandleBox());
+  const rotHandle = createRotationHandle();
+  bindRotationHandle(wrapper, rotHandle, {
+    onSelect: () => selectShape(wrapper),
+    onChange: () => positionColorPicker(),
+  });
+  wrapper.appendChild(rotHandle);
   wrapper.appendChild(api.createRemoveButton(wrapper, () => removeShape(wrapper)));
   applyShapeBox(wrapper);
+  applyRotation(wrapper, 0);
 
   shapeLayerEl.appendChild(wrapper);
   bindShapeInteractions(wrapper);
@@ -252,6 +261,7 @@ function removeShape(el) {
 function startShapeMove(event, el) {
   if (event.button != null && event.button !== 0) return;
   if (event.target.closest(".shape-handle")) return;
+  if (event.target.closest(".rotation-handle")) return;
   if (event.target.closest(".placed-remove")) return;
   event.preventDefault();
   selectShape(el);

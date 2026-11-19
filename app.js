@@ -1,4 +1,5 @@
 import { initShapes, deselectShape } from "./shapes.js";
+import { applyRotation, bindRotationHandle, createRotationHandle } from "./rotation.js";
 
 const FRAME_COUNT = 31;
 const PLACE_SCALE_BOOST = 1.1;
@@ -203,6 +204,16 @@ function placeScaleBoostForSticker(sticker) {
   return typeof boost === "number" && boost > 1 ? boost : 1;
 }
 
+function attachRotationHandle(wrapper, onSync) {
+  const handle = createRotationHandle();
+  bindRotationHandle(wrapper, handle, {
+    onSelect: () => selectPlaced(wrapper),
+    onChange: onSync,
+  });
+  wrapper.appendChild(handle);
+  applyRotation(wrapper, 0);
+}
+
 function createRemoveButton(wrapper, onRemove) {
   const remove = onRemove || (() => removePlaced(wrapper));
   const removeBtn = document.createElement("button");
@@ -261,6 +272,9 @@ function placeBanana(clientX, clientY, bruiseIndex = DEFAULT_BANANA_BRUISE) {
 
   wrapper.appendChild(img);
   wrapper.appendChild(createRemoveButton(wrapper));
+  attachRotationHandle(wrapper, () => {
+    positionInlineControls();
+  });
   bananaLayerEl.appendChild(wrapper);
   bindPlacedDrag(wrapper);
   selectPlaced(wrapper);
@@ -293,6 +307,9 @@ function placeSticker(src, clientX, clientY, placeScaleBoost = 1) {
 
   wrapper.appendChild(img);
   wrapper.appendChild(createRemoveButton(wrapper));
+  attachRotationHandle(wrapper, () => {
+    positionInlineControls();
+  });
   layerEl.appendChild(wrapper);
   bindPlacedDrag(wrapper);
   selectPlaced(wrapper);
@@ -323,6 +340,7 @@ function bindPlacedDrag(el) {
     if (event.button != null && event.button !== 0) return;
     if (event.target.closest(".placed-remove")) return;
     if (event.target.closest(".placed-inline")) return;
+    if (event.target.closest(".rotation-handle")) return;
     event.preventDefault();
     selectPlaced(el);
     el.setPointerCapture(event.pointerId);
