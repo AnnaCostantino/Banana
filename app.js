@@ -1,5 +1,6 @@
 import { initShapes, deselectShape } from "./shapes.js";
 import { applyRotation, bindRotationHandle, createRotationHandle } from "./rotation.js";
+import { exportCollage } from "./export.js";
 
 const FRAME_COUNT = 31;
 const PLACE_SCALE_BOOST = 1.1;
@@ -469,11 +470,60 @@ function renderLibrary(stickers) {
   });
 }
 
+let exportPanelExpanded = false;
+
+function setExportPanelExpanded(expanded) {
+  exportPanelExpanded = expanded;
+  const panel = document.getElementById("export-panel");
+  const wrap = document.getElementById("export-tray-wrap");
+  const toggle = document.getElementById("export-toggle");
+  if (panel) {
+    panel.classList.toggle("is-collapsed", !expanded);
+    panel.classList.toggle("is-expanded", expanded);
+  }
+  if (wrap) wrap.hidden = !expanded;
+  if (toggle) toggle.setAttribute("aria-expanded", String(expanded));
+}
+
 stickersToggleBtn?.addEventListener("click", () => {
   setStickersLibraryExpanded(!stickersLibraryExpanded);
 });
 bananaToggleBtn?.addEventListener("click", () => {
   setBananaToolExpanded(!bananaToolExpanded);
+});
+document.getElementById("export-toggle")?.addEventListener("click", () => {
+  setExportPanelExpanded(!exportPanelExpanded);
+});
+
+const exportDownloadBtn = document.getElementById("export-download");
+exportDownloadBtn?.addEventListener("click", async () => {
+  const formatEl = document.getElementById("export-format");
+  const dpiEl = document.getElementById("export-dpi");
+  const format = formatEl?.value === "pdf" ? "pdf" : "jpg";
+  const dpi = parseInt(dpiEl?.value ?? "300", 10);
+  exportDownloadBtn.disabled = true;
+  exportDownloadBtn.textContent = "Exporting…";
+  try {
+    await exportCollage({
+      canvasEl,
+      format,
+      dpi,
+      onPrepare: () => {
+        selectPlaced(null);
+        deselectShape();
+        canvasEl.classList.add("is-exporting");
+      },
+      onRestore: () => {
+        canvasEl.classList.remove("is-exporting");
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    window.alert("Export failed. Check your connection and try again.");
+  } finally {
+    exportDownloadBtn.disabled = false;
+    exportDownloadBtn.textContent = "Download collage";
+  }
 });
 
 inlineScaleMinusBtn?.addEventListener("click", () => nudgeUserScale(selectedPlaced, -1));
@@ -589,6 +639,7 @@ async function boot() {
   renderLibrary(assets.stickers);
   setStickersLibraryExpanded(false);
   setBananaToolExpanded(false);
+  setExportPanelExpanded(false);
 
   if (bananaPlaceBtn) {
     bindLibraryPlaceThumb(bananaPlaceBtn, (clientX, clientY) => {

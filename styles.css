@@ -816,6 +816,83 @@ button {
   pointer-events: none;
 }
 
+.export-tray {
+  padding: 0.85rem 1rem 1.1rem;
+}
+
+.export-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.export-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  text-align: left;
+}
+
+.export-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #111;
+}
+
+.export-select {
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 10px;
+  border: 1.5px solid rgba(16, 85, 168, 0.25);
+  background: #fff;
+  color: #111;
+}
+
+.export-download-btn {
+  margin-top: 0.25rem;
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--panel-ink);
+  font-family: var(--font-ui);
+  font-size: 1.05rem;
+  font-weight: 600;
+  box-shadow: 0 8px 20px rgba(16, 85, 168, 0.22);
+  transition: transform 160ms ease, background 160ms ease, opacity 160ms ease;
+}
+
+.export-download-btn:hover:not(:disabled) {
+  background: #0d4a93;
+}
+
+.export-download-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.export-download-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.canvas.is-exporting .placed-inline,
+.canvas.is-exporting .shape-color-picker,
+.canvas.is-exporting .rotation-handle,
+.canvas.is-exporting .shape-handles,
+.canvas.is-exporting .placed-remove,
+.canvas.is-exporting .placed-sticker.is-selected::after,
+.canvas.is-exporting .placed-banana.is-selected::after,
+.canvas.is-exporting .placed-shape.is-selected::after {
+  display: none !important;
+}
+
+.canvas.is-exporting .placed-sticker.is-selected,
+.canvas.is-exporting .placed-banana.is-selected,
+.canvas.is-exporting .placed-shape.is-selected {
+  outline: none;
+}
+
 .hsv-hue-pointer {
   position: absolute;
   left: 50%;
