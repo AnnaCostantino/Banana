@@ -1,6 +1,6 @@
-# Banana Editor
+# Banana Poster
 
-One-page banana customizer: step through 31 risograph ripeness frames with **Bruise**, then drag brand stickers onto the banana.
+One-page banana **poster / collage** builder: full-bleed bruise **texture** background, place risograph **bananas** (per-instance **Bruise** and size), and drag brand **stickers** on top.
 
 ## Run locally
 
@@ -23,10 +23,12 @@ npx --yes serve . -l 4173
 Static HTML / CSS / JS. No backend.
 
 - Typeface: **Apfel Grotezk** (`fonts/ApfelGrotezk-Mittel.otf`)
-- Ripeness frames: `frames/banana-00.png` … `banana-30.png` (ripe → rotten)
+- Poster texture: `textures/banana-poster-texture.jpg`
+- Ripeness frames: `frames/banana-00.png` … `banana-30.png` (per placed banana via inline Bruise)
 - Stickers: `stickers/*.png`
 
 ## Controls
 
-- **Bruise − / +** — previous / next ripeness frame
+- **Banana** — add banana instances to the poster (click or drag from tool)
+- **Bruise − / +** — appears inline when a banana is selected; steps that instance’s ripeness frame
 - **Stickers** — click to drop on the banana, or drag from the library; drag placed stickers to move them
