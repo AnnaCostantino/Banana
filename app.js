@@ -3,6 +3,8 @@ import { applyRotation, bindRotationHandle, createRotationHandle } from "./rotat
 import { exportCollage } from "./export.js";
 import { initPosterColor } from "./poster-color.js";
 import { initBananaColor } from "./banana-color.js";
+import { applyBananaTintToElement, writeBananaHsv } from "./banana-color.js";
+import { applyPasteOffset, serializeSelection } from "./copy-paste.js";
 import {
   applyBBox,
   bindBBoxElement,
@@ -53,6 +55,137 @@ let shapesApi = null;
 let posterColorApi = null;
 /** @type {ReturnType<typeof initBananaColor> | null} */
 let bananaColorApi = null;
+/** @type {ReturnType<typeof serializeSelection> | null} */
+let collageClipboard = null;
+
+function isTypingTarget(target) {
+  if (!target || !(target instanceof Element)) return false;
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return true;
+  if (target instanceof HTMLSelectElement) return true;
+  return target.isContentEditable;
+}
+
+function copyActiveSelection() {
+  if (selectedPlaced && isBananaPlaced(selectedPlaced)) {
+    collageClipboard = serializeSelection(selectedPlaced, "banana");
+    return Boolean(collageClipboard);
+  }
+  if (selectedPlaced?.classList.contains("placed-sticker")) {
+    collageClipboard = serializeSelection(selectedPlaced, "sticker");
+    return Boolean(collageClipboard);
+  }
+  const shape = shapesApi?.getSelectedShape?.();
+  if (shape) {
+    collageClipboard = serializeSelection(shape, "shape");
+    return Boolean(collageClipboard);
+  }
+  return false;
+}
+
+function createBananaFromSnapshot(state) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "placed-banana";
+  wrapper.tabIndex = 0;
+  wrapper.setAttribute("role", "button");
+  wrapper.setAttribute(
+    "aria-label",
+    "Placed banana. Drag to move. Use handles to resize. Bruise inline. Press Delete to remove."
+  );
+  wrapper.dataset.x = String(state.x);
+  wrapper.dataset.y = String(state.y);
+  wrapper.dataset.w = String(state.w);
+  wrapper.dataset.h = String(state.h);
+  wrapper.dataset.aspect = state.aspect ?? String(BANANA_IMG_ASPECT);
+  wrapper.dataset.bruiseIndex = String(state.bruiseIndex);
+
+  const img = document.createElement("img");
+  img.className = "placed-banana-img";
+  img.alt = "Placed banana";
+  img.draggable = false;
+  img.width = 1512;
+  img.height = 865;
+
+  wrapper.appendChild(img);
+  wrapper.appendChild(createBBoxHandles());
+  attachRotationHandle(wrapper, () => {
+    positionInlineControls();
+  });
+  wrapper.appendChild(createRemoveButton(wrapper));
+  applyBBox(wrapper);
+  applyRotation(wrapper, state.rotation ?? 0);
+  writeBananaHsv(wrapper, {
+    h: state.bananaH,
+    s: state.bananaS,
+    v: state.bananaV,
+  });
+  bananaLayerEl.appendChild(wrapper);
+  bindPlacedBBox(wrapper);
+  applyBananaTintToElement(wrapper, state.bruiseIndex);
+  return wrapper;
+}
+
+function createStickerFromSnapshot(state) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "placed-sticker";
+  wrapper.tabIndex = 0;
+  wrapper.setAttribute("role", "button");
+  wrapper.setAttribute(
+    "aria-label",
+    "Placed sticker. Drag to move. Use handles to resize. Press Delete to remove."
+  );
+  wrapper.dataset.x = String(state.x);
+  wrapper.dataset.y = String(state.y);
+  wrapper.dataset.w = String(state.w);
+  wrapper.dataset.h = String(state.h);
+  wrapper.dataset.aspect = state.aspect ?? "1";
+  wrapper.dataset.placeScaleBoost = String(state.placeScaleBoost ?? 1);
+  wrapper.dataset.stickerSrc = state.stickerSrc;
+  if (state.jitter != null) wrapper.dataset.jitter = String(state.jitter);
+
+  const img = document.createElement("img");
+  img.className = "placed-sticker-img";
+  img.src = state.stickerSrc;
+  img.alt = "Placed sticker";
+  img.draggable = false;
+
+  wrapper.appendChild(img);
+  wrapper.appendChild(createBBoxHandles());
+  attachRotationHandle(wrapper, () => {
+    positionInlineControls();
+  });
+  wrapper.appendChild(createRemoveButton(wrapper));
+  applyBBox(wrapper);
+  applyRotation(wrapper, state.rotation ?? 0);
+  const { x, y } = stickerPoseCenter(wrapper);
+  applyStickerPose(wrapper, x, y);
+  layerEl.appendChild(wrapper);
+  bindPlacedBBox(wrapper);
+  return wrapper;
+}
+
+function pasteFromClipboard() {
+  if (!collageClipboard) return false;
+  const state = applyPasteOffset(collageClipboard, canvasEl);
+  deselectShape();
+  let el = null;
+  if (state.kind === "banana") {
+    el = createBananaFromSnapshot(state);
+    selectPlaced(el);
+  } else if (state.kind === "sticker") {
+    el = createStickerFromSnapshot(state);
+    selectPlaced(el);
+  } else if (state.kind === "shape") {
+    el = shapesApi?.duplicateFromSnapshot?.(state);
+  }
+  if (el && collageClipboard) {
+    collageClipboard = {
+      ...collageClipboard,
+      x: state.x,
+      y: state.y,
+    };
+  }
+  return Boolean(el);
+}
 
 function setSideToolExpanded(panelEl, trayWrapEl, toggleBtn, expanded, expandedFlagRef) {
   if (panelEl) {
@@ -304,6 +437,7 @@ function placeSticker(src, clientX, clientY, placeScaleBoost = 1) {
   wrapper.dataset.h = String(box.h);
   wrapper.dataset.aspect = "1";
   wrapper.dataset.placeScaleBoost = String(placeScaleBoost);
+  wrapper.dataset.stickerSrc = src;
 
   const img = document.createElement("img");
   img.className = "placed-sticker-img";
@@ -543,7 +677,16 @@ if (typeof ResizeObserver !== "undefined" && canvasEl) {
 }
 
 document.addEventListener("keydown", (event) => {
-  if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+  if (isTypingTarget(event.target)) return;
+  const mod = event.metaKey || event.ctrlKey;
+  if (mod && event.key.toLowerCase() === "c") {
+    if (copyActiveSelection()) event.preventDefault();
+    return;
+  }
+  if (mod && event.key.toLowerCase() === "v") {
+    if (pasteFromClipboard()) event.preventDefault();
+    return;
+  }
   if (shapesApi?.onKeydown(event)) return;
   if (!selectedPlaced) return;
   if (event.key === "Delete" || event.key === "Backspace") {

@@ -137,6 +137,42 @@ function shapeGraphicSvg(type) {
   return svg;
 }
 
+function duplicateShapeFromSnapshot(snapshot) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "placed-shape";
+  wrapper.tabIndex = 0;
+  wrapper.dataset.shapeType = snapshot.shapeType;
+  wrapper.dataset.x = String(snapshot.x);
+  wrapper.dataset.y = String(snapshot.y);
+  wrapper.dataset.w = String(snapshot.w);
+  wrapper.dataset.h = String(snapshot.h);
+  wrapper.dataset.fill = snapshot.fill;
+  wrapper.setAttribute("role", "button");
+  wrapper.setAttribute(
+    "aria-label",
+    `Placed ${snapshot.shapeType}. Drag to move. Use handles to resize.`
+  );
+
+  const graphic = shapeGraphicSvg(snapshot.shapeType);
+  graphic.style.color = snapshot.fill;
+  wrapper.appendChild(graphic);
+  wrapper.appendChild(createHandleBox());
+  const rotHandle = createRotationHandle();
+  bindRotationHandle(wrapper, rotHandle, {
+    onSelect: () => selectShape(wrapper),
+    onChange: () => positionColorPicker(),
+  });
+  wrapper.appendChild(rotHandle);
+  wrapper.appendChild(api.createRemoveButton(wrapper, () => removeShape(wrapper)));
+  applyShapeBox(wrapper);
+  applyRotation(wrapper, snapshot.rotation ?? 0);
+
+  shapeLayerEl.appendChild(wrapper);
+  bindShapeInteractions(wrapper);
+  selectShape(wrapper);
+  return wrapper;
+}
+
 function placeShape(type, clientX, clientY) {
   const rect = api.canvasEl.getBoundingClientRect();
   const w = 22;
@@ -272,6 +308,7 @@ export function initShapes(options) {
     getSelectedShape: () => selectedShape,
     positionColorPicker,
     removeShape,
+    duplicateFromSnapshot: duplicateShapeFromSnapshot,
     onCanvasPointerDown(target) {
       if (target.closest?.(".shape-color-picker")) return true;
       if (target === shapeLayerEl) {
