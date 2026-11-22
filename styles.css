@@ -58,9 +58,67 @@ button {
 }
 
 .stage {
+  position: relative;
   display: grid;
   place-items: center;
   min-height: 0;
+}
+
+/* Absolutely positioned in stage gutter — does not change grid or canvas box. */
+.selection-color-left {
+  position: absolute;
+  z-index: 12;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: min(calc(100vw - 320px - 4rem), 172px);
+  max-width: 172px;
+  padding: 0.85rem 0.75rem 1rem;
+  background: var(--panel);
+  color: var(--panel-ink);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-soft);
+  pointer-events: auto;
+}
+
+.selection-color-left[hidden] {
+  display: none !important;
+}
+
+.selection-color-left-title {
+  margin: 0 0 0.65rem;
+  font-size: clamp(1.05rem, 1.8vw, 1.25rem);
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.1;
+}
+
+.selection-color-left-picker {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 0.55rem;
+}
+
+.selection-color-reset {
+  width: 100%;
+  margin-top: 0.15rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--panel-ink);
+  background: rgba(255, 255, 255, 0.12);
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.selection-color-reset:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.selection-color-reset:active {
+  transform: scale(0.97);
 }
 
 .canvas {
@@ -970,7 +1028,7 @@ button {
 }
 
 .canvas.is-exporting .placed-inline,
-.canvas.is-exporting .shape-color-picker,
+.selection-color-left.is-exporting,
 .canvas.is-exporting .rotation-handle,
 .canvas.is-exporting .shape-handles,
 .canvas.is-exporting .placed-remove,

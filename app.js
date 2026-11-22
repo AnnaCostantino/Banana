@@ -2,8 +2,13 @@ import { initShapes, deselectShape } from "./shapes.js";
 import { applyRotation, bindRotationHandle, createRotationHandle } from "./rotation.js";
 import { exportCollage } from "./export.js";
 import { initPosterColor } from "./poster-color.js";
-import { initBananaColor } from "./banana-color.js";
-import { applyBananaTintToElement, writeBananaHsv } from "./banana-color.js";
+import { initBananaTints, applyBananaTintToElement, writeBananaHsv } from "./banana-color.js";
+import {
+  initSelectionColorLeft,
+  clearSelectionColorLeft,
+  bindSelectionColorLeft,
+} from "./selection-color-left.js";
+import { applyStickerTintToElement, initStickerTints } from "./sticker-color.js";
 import { applyPasteOffset, serializeSelection } from "./copy-paste.js";
 import {
   applyBBox,
@@ -38,6 +43,7 @@ const stickersTrayWrapEl = document.getElementById("stickers-tray-wrap");
 const bananaPanelEl = document.getElementById("banana-panel");
 const bananaToggleBtn = document.getElementById("banana-toggle");
 const bananaTrayWrapEl = document.getElementById("banana-tray-wrap");
+const selectionColorLeftEl = document.getElementById("selection-color-left");
 
 /** Gap between selection bottom edge and inline controls (screen px). */
 const INLINE_CONTROLS_OFFSET_PX = 8;
@@ -53,8 +59,10 @@ let bananaToolExpanded = false;
 let shapesApi = null;
 /** @type {ReturnType<typeof initPosterColor> | null} */
 let posterColorApi = null;
-/** @type {ReturnType<typeof initBananaColor> | null} */
+/** @type {ReturnType<typeof initBananaTints> | null} */
 let bananaColorApi = null;
+/** @type {ReturnType<typeof initSelectionColorLeft> | null} */
+let selectionColorApi = null;
 /** @type {ReturnType<typeof serializeSelection> | null} */
 let collageClipboard = null;
 
@@ -141,6 +149,12 @@ function createStickerFromSnapshot(state) {
   wrapper.dataset.placeScaleBoost = String(state.placeScaleBoost ?? 1);
   wrapper.dataset.stickerSrc = state.stickerSrc;
   if (state.jitter != null) wrapper.dataset.jitter = String(state.jitter);
+  if (state.stickerTint === "1") {
+    wrapper.dataset.stickerTint = "1";
+    wrapper.dataset.stickerH = String(state.stickerH);
+    wrapper.dataset.stickerS = String(state.stickerS);
+    wrapper.dataset.stickerV = String(state.stickerV);
+  }
 
   const img = document.createElement("img");
   img.className = "placed-sticker-img";
@@ -160,6 +174,7 @@ function createStickerFromSnapshot(state) {
   applyStickerPose(wrapper, x, y);
   layerEl.appendChild(wrapper);
   bindPlacedBBox(wrapper);
+  if (state.stickerTint === "1") applyStickerTintToElement(wrapper);
   return wrapper;
 }
 
@@ -317,18 +332,25 @@ function selectPlaced(el) {
   if (selectedPlaced) {
     selectedPlaced.classList.add("is-selected");
     selectedPlaced.focus({ preventScroll: true });
+  } else if (!shapesApi?.getSelectedShape?.()) {
+    clearSelectionColorLeft();
   }
   if (isBananaPlaced(selectedPlaced)) {
-    bananaColorApi?.onBananaSelectionChanged(selectedPlaced);
-  } else {
-    bananaColorApi?.onBananaSelectionChanged(null);
+    bindSelectionColorLeft("banana", selectedPlaced);
+  } else if (selectedPlaced?.classList.contains("placed-sticker")) {
+    bindSelectionColorLeft("sticker", selectedPlaced);
+  } else if (!shapesApi?.getSelectedShape?.()) {
+    clearSelectionColorLeft();
   }
   syncInlineUi();
 }
 
 function removePlaced(el) {
   if (!el) return;
-  if (selectedPlaced === el) selectedPlaced = null;
+  if (selectedPlaced === el) {
+    selectedPlaced = null;
+    if (!shapesApi?.getSelectedShape?.()) clearSelectionColorLeft();
+  }
   clearBboxDragIf(el);
   el.remove();
   syncInlineUi();
@@ -412,7 +434,11 @@ function placeBanana(clientX, clientY, bruiseIndex = DEFAULT_BANANA_BRUISE) {
   applyBBox(wrapper);
   bananaLayerEl.appendChild(wrapper);
   bindPlacedBBox(wrapper);
-  bananaColorApi?.applyNewBanana(wrapper, bruiseIndex);
+  bananaColorApi?.applyNewBanana(
+    wrapper,
+    bruiseIndex,
+    selectionColorApi?.readDefaultForNewBanana?.()
+  );
   selectPlaced(wrapper);
   return wrapper;
 }
@@ -621,11 +647,13 @@ exportDownloadBtn?.addEventListener("click", async () => {
         selectPlaced(null);
         deselectShape();
         canvasEl.classList.add("is-exporting");
+        selectionColorLeftEl?.classList.add("is-exporting");
         await posterColorApi?.ensureExportReady?.();
         await bananaColorApi?.ensureExportReady?.();
       },
       onRestore: () => {
         canvasEl.classList.remove("is-exporting");
+        selectionColorLeftEl?.classList.remove("is-exporting");
       },
     });
   } catch (err) {
@@ -653,7 +681,7 @@ inlineEl?.addEventListener("pointerdown", (event) => {
 
 canvasEl.addEventListener("pointerdown", (event) => {
   if (event.target.closest(".placed-inline")) return;
-  if (event.target.closest(".shape-color-picker")) return;
+  if (event.target.closest(".selection-color-left")) return;
   if (shapesApi?.onCanvasPointerDown(event.target)) return;
   if (
     event.target === canvasEl ||
@@ -671,7 +699,6 @@ window.addEventListener("resize", () => positionInlineControls());
 if (typeof ResizeObserver !== "undefined" && canvasEl) {
   const canvasResizeObserver = new ResizeObserver(() => {
     positionInlineControls();
-    shapesApi?.positionColorPicker?.();
   });
   canvasResizeObserver.observe(canvasEl);
 }
@@ -696,6 +723,7 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     event.preventDefault();
     selectPlaced(null);
+    clearSelectionColorLeft();
   }
 });
 
@@ -757,19 +785,17 @@ async function boot() {
     });
   }
 
-  bananaColorApi = initBananaColor({
-    frameSrc,
-    frameCount: FRAME_COUNT,
-    defaultPreviewFrame: DEFAULT_BANANA_BRUISE,
-    getSelectedBanana: () => (isBananaPlaced(selectedPlaced) ? selectedPlaced : null),
-    previewEl: bananaToolPreview,
-    hintEl: document.getElementById("banana-color-hint"),
-    svEl: document.getElementById("banana-hsv-sv"),
-    hueEl: document.getElementById("banana-hsv-hue"),
-    svPointer: document.getElementById("banana-hsv-sv-pointer"),
-    huePointer: document.getElementById("banana-hsv-hue-pointer"),
-    resetBtn: document.getElementById("banana-color-reset"),
-    trayWrapEl: bananaTrayWrapEl,
+  bananaColorApi = initBananaTints({ frameSrc, frameCount: FRAME_COUNT });
+  initStickerTints();
+
+  selectionColorApi = initSelectionColorLeft({
+    dockEl: selectionColorLeftEl,
+    labelEl: document.getElementById("selection-color-left-label"),
+    svEl: document.getElementById("selection-hsv-sv"),
+    hueEl: document.getElementById("selection-hsv-hue"),
+    svPointer: document.getElementById("selection-hsv-sv-pointer"),
+    huePointer: document.getElementById("selection-hsv-hue-pointer"),
+    resetBtn: document.getElementById("selection-color-reset"),
     clamp,
   });
 
@@ -794,12 +820,11 @@ async function boot() {
     shapesToggleBtn: document.getElementById("shapes-toggle"),
     shapesTrayWrapEl: document.getElementById("shapes-tray-wrap"),
     shapesLibraryEl: document.getElementById("shape-library"),
-    colorPickerEl: document.getElementById("shape-color-picker"),
-    hsvSvEl: document.getElementById("hsv-sv"),
-    hsvHueEl: document.getElementById("hsv-hue"),
-    hsvSvPointer: document.getElementById("hsv-sv-pointer"),
-    hsvHuePointer: document.getElementById("hsv-hue-pointer"),
     clamp,
+    onShapeSelected: (shapeEl) => bindSelectionColorLeft("shape", shapeEl),
+    onShapeDeselected: () => {
+      if (!selectedPlaced) clearSelectionColorLeft();
+    },
     bindLibraryPlaceThumb,
     createRemoveButton,
     clearOtherSelection: () => selectPlaced(null),
