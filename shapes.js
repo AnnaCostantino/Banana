@@ -5,15 +5,6 @@ import {
   clearBboxDragIf,
   createBBoxHandles as createHandleBox,
 } from "./bbox.js";
-import {
-  bindHsvPicker,
-  hexToHsv,
-  hsvToRgb,
-  rgbToHex,
-  updateSvPickerBackground,
-  syncHsvPickerPointers,
-} from "./hsv-color.js";
-
 const SHAPE_TYPES = ["rectangle", "ellipse", "triangle"];
 const DEFAULT_SHAPE_FILL = "#1055A8";
 /** @type {import('./shapes.js').ShapeApi | null} */
@@ -26,64 +17,6 @@ let shapesPanelEl;
 let shapesToggleBtn;
 let shapesTrayWrapEl;
 let shapesLibraryEl;
-let colorPickerEl;
-let hsvSvEl;
-let hsvHueEl;
-let hsvSvPointer;
-let hsvHuePointer;
-
-let pickerHue = 212;
-let pickerSat = 0.72;
-let pickerVal = 0.55;
-
-function currentPickerColor() {
-  const { r, g, b } = hsvToRgb(pickerHue, pickerSat, pickerVal);
-  return rgbToHex(r, g, b);
-}
-
-function syncPickerPointers() {
-  syncHsvPickerPointers({
-    svPointer: hsvSvPointer,
-    huePointer: hsvHuePointer,
-    h: pickerHue,
-    s: pickerSat,
-    v: pickerVal,
-  });
-  updateSvPickerBackground(hsvSvEl, pickerHue);
-}
-
-function applyPickerToSelectedShape() {
-  const hex = currentPickerColor();
-  if (selectedShape) {
-    selectedShape.dataset.fill = hex;
-    const graphic = selectedShape.querySelector(".shape-graphic");
-    if (graphic) graphic.style.color = hex;
-  }
-}
-
-function setPickerFromHex(hex) {
-  const hsv = hexToHsv(hex);
-  pickerHue = hsv.h;
-  pickerSat = hsv.s;
-  pickerVal = hsv.v;
-  syncPickerPointers();
-}
-
-function positionColorPicker() {
-  if (!colorPickerEl || !selectedShape) {
-    if (colorPickerEl) colorPickerEl.hidden = true;
-    return;
-  }
-  const canvasRect = api.canvasEl.getBoundingClientRect();
-  const shapeRect = selectedShape.getBoundingClientRect();
-  const centerX =
-    ((shapeRect.left + shapeRect.width / 2 - canvasRect.left) / canvasRect.width) * 100;
-  const topY =
-    ((shapeRect.bottom - canvasRect.top + api.inlineOffsetPx) / canvasRect.height) * 100;
-  colorPickerEl.style.left = `${centerX}%`;
-  colorPickerEl.style.top = `${topY}%`;
-  colorPickerEl.hidden = false;
-}
 
 function isShapeEl(el) {
   return el?.classList?.contains("placed-shape");
@@ -93,7 +26,7 @@ export function deselectShape() {
   if (!selectedShape) return;
   selectedShape.classList.remove("is-selected");
   selectedShape = null;
-  if (colorPickerEl) colorPickerEl.hidden = true;
+  api.onShapeDeselected?.();
 }
 
 export function selectShape(el) {
@@ -104,9 +37,7 @@ export function selectShape(el) {
   if (selectedShape) {
     selectedShape.classList.add("is-selected");
     selectedShape.focus({ preventScroll: true });
-    setPickerFromHex(selectedShape.dataset.fill || DEFAULT_SHAPE_FILL);
-    applyPickerToSelectedShape();
-    positionColorPicker();
+    api.onShapeSelected?.(selectedShape);
     api.hideInlineForShape?.();
   }
 }
@@ -160,7 +91,7 @@ function duplicateShapeFromSnapshot(snapshot) {
   const rotHandle = createRotationHandle();
   bindRotationHandle(wrapper, rotHandle, {
     onSelect: () => selectShape(wrapper),
-    onChange: () => positionColorPicker(),
+    onChange: () => {},
   });
   wrapper.appendChild(rotHandle);
   wrapper.appendChild(api.createRemoveButton(wrapper, () => removeShape(wrapper)));
@@ -199,7 +130,7 @@ function placeShape(type, clientX, clientY) {
   const rotHandle = createRotationHandle();
   bindRotationHandle(wrapper, rotHandle, {
     onSelect: () => selectShape(wrapper),
-    onChange: () => positionColorPicker(),
+    onChange: () => {},
   });
   wrapper.appendChild(rotHandle);
   wrapper.appendChild(api.createRemoveButton(wrapper, () => removeShape(wrapper)));
@@ -225,7 +156,7 @@ function bindShapeInteractions(el) {
     clamp: api.clamp,
     aspectLock: false,
     onSelect: () => selectShape(el),
-    onUpdate: () => positionColorPicker(),
+    onUpdate: () => {},
   });
 }
 
@@ -259,25 +190,6 @@ function setShapesLibraryExpanded(expanded) {
   if (shapesToggleBtn) shapesToggleBtn.setAttribute("aria-expanded", String(expanded));
 }
 
-function bindColorPicker() {
-  if (!hsvSvEl || !hsvHueEl) return;
-  bindHsvPicker({
-    svEl: hsvSvEl,
-    hueEl: hsvHueEl,
-    svPointer: hsvSvPointer,
-    huePointer: hsvHuePointer,
-    clamp: api.clamp,
-    initial: hexToHsv(DEFAULT_SHAPE_FILL),
-    onChange: ({ h, s, v }) => {
-      pickerHue = h;
-      pickerSat = s;
-      pickerVal = v;
-      applyPickerToSelectedShape();
-    },
-    stopPropagationEl: colorPickerEl,
-  });
-}
-
 export function initShapes(options) {
   api = options;
   shapeLayerEl = options.shapeLayerEl;
@@ -285,11 +197,6 @@ export function initShapes(options) {
   shapesToggleBtn = options.shapesToggleBtn;
   shapesTrayWrapEl = options.shapesTrayWrapEl;
   shapesLibraryEl = options.shapesLibraryEl;
-  colorPickerEl = options.colorPickerEl;
-  hsvSvEl = options.hsvSvEl;
-  hsvHueEl = options.hsvHueEl;
-  hsvSvPointer = options.hsvSvPointer;
-  hsvHuePointer = options.hsvHuePointer;
 
   shapesToggleBtn?.addEventListener("click", () => {
     setShapesLibraryExpanded(!shapesLibraryExpanded);
@@ -297,20 +204,15 @@ export function initShapes(options) {
 
   renderShapeLibrary();
   setShapesLibraryExpanded(false);
-  bindColorPicker();
-
-  window.addEventListener("resize", positionColorPicker);
 
   return {
     isShapeEl,
     selectShape,
     deselectShape,
     getSelectedShape: () => selectedShape,
-    positionColorPicker,
     removeShape,
     duplicateFromSnapshot: duplicateShapeFromSnapshot,
     onCanvasPointerDown(target) {
-      if (target.closest?.(".shape-color-picker")) return true;
       if (target === shapeLayerEl) {
         deselectShape();
         return false;
