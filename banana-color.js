@@ -1,4 +1,4 @@
-import { DEFAULT_POSTER_HSV } from "./hsv-color.js";
+import { DEFAULT_POSTER_HSV, bindHsvPicker } from "./hsv-color.js";
 import {
   readImageDataFromImage,
   renderTintedToDataUrl,
@@ -16,6 +16,12 @@ const tintUrlCache = new Map();
 let workW = 0;
 let workH = 0;
 let framesReady = null;
+let pickerApi = null;
+let pendingHsv = { ...DEFAULT_POSTER_HSV };
+let getSelectedBanana = () => null;
+let hintEl = null;
+let previewEl = null;
+let defaultPreviewFrame = 12;
 
 function hsvKey(hsv) {
   return `${hsv.h.toFixed(1)},${hsv.s.toFixed(3)},${hsv.v.toFixed(3)}`;
@@ -27,8 +33,14 @@ function cacheKey(frameIndex, hsv) {
 
 function pruneTintCache() {
   if (tintUrlCache.size <= TINT_CACHE_MAX) return;
+  const drop = tintUrlCache.size - TINT_CACHE_MAX;
   const keys = [...tintUrlCache.keys()];
-  for (let i = 0; i < keys.length - TINT_CACHE_MAX; i += 1) tintUrlCache.delete(keys[i]);
+  for (let i = 0; i < drop; i += 1) {
+    const k = keys[i];
+    const url = tintUrlCache.get(k);
+    if (url?.startsWith("blob:")) URL.revokeObjectURL(url);
+    tintUrlCache.delete(k);
+  }
 }
 
 export function parseBananaHsv(el) {
@@ -48,6 +60,12 @@ export function writeBananaHsv(el, hsv) {
   el.dataset.bananaV = String(hsv.v);
 }
 
+function syncHint() {
+  if (!hintEl) return;
+  const selected = getSelectedBanana();
+  hintEl.hidden = Boolean(selected);
+}
+
 function getTintedUrl(frameIndex, hsv) {
   const key = cacheKey(frameIndex, hsv);
   const hit = tintUrlCache.get(key);
@@ -58,6 +76,12 @@ function getTintedUrl(frameIndex, hsv) {
   tintUrlCache.set(key, url);
   pruneTintCache();
   return url;
+}
+
+function refreshPreview(hsv, frameIndex = defaultPreviewFrame) {
+  if (!previewEl || !framesReady) return;
+  const url = getTintedUrl(frameIndex, hsv);
+  if (url) previewEl.src = url;
 }
 
 export function applyBananaTintToElement(bananaEl, frameIndex) {
@@ -95,17 +119,65 @@ async function ensureFramesLoaded(frameSrc, frameCount) {
   return framesReady;
 }
 
-export function initBananaTints(options) {
-  ensureFramesLoaded(options.frameSrc, options.frameCount).catch((err) =>
-    console.error("Banana frame load failed", err)
-  );
+function onPickerChange(hsv) {
+  const selected = getSelectedBanana();
+  if (selected) {
+    writeBananaHsv(selected, hsv);
+    const idx = parseInt(selected.dataset.bruiseIndex ?? "12", 10);
+    applyBananaTintToElement(selected, idx);
+  } else {
+    pendingHsv = hsv;
+  }
+  refreshPreview(hsv);
+  syncHint();
+}
+
+export function onBananaSelectionChanged(bananaEl) {
+  syncHint();
+  if (!bananaEl) {
+    return;
+  }
+  const hsv = parseBananaHsv(bananaEl);
+  pickerApi?.setHsv(hsv);
+}
+
+export function initBananaColor(options) {
+  getSelectedBanana = options.getSelectedBanana;
+  hintEl = options.hintEl;
+  previewEl = options.previewEl;
+  defaultPreviewFrame = options.defaultPreviewFrame ?? 12;
+
+  pickerApi = bindHsvPicker({
+    svEl: options.svEl,
+    hueEl: options.hueEl,
+    svPointer: options.svPointer,
+    huePointer: options.huePointer,
+    clamp: options.clamp,
+    initial: DEFAULT_POSTER_HSV,
+    onChange: onPickerChange,
+    stopPropagationEl: options.trayWrapEl,
+  });
+
+  options.resetBtn?.addEventListener("click", () => {
+    pickerApi.setHsv(DEFAULT_POSTER_HSV);
+  });
+
+  ensureFramesLoaded(options.frameSrc, options.frameCount).then(() => {
+    refreshPreview(pickerApi.getHsv());
+  });
+
+  syncHint();
 
   return {
-    applyNewBanana: (el, bruiseIndex, hsv) => {
-      if (hsv) writeBananaHsv(el, hsv);
+    applyNewBanana: (el, bruiseIndex) => {
+      const hsv = getSelectedBanana() ? pickerApi.getHsv() : pendingHsv;
+      writeBananaHsv(el, hsv);
       applyBananaTintToElement(el, bruiseIndex);
     },
     onBruiseChange: (el, bruiseIndex) => applyBananaTintToElement(el, bruiseIndex),
+    onBananaSelectionChanged,
+    ensureFramesLoaded: () => ensureFramesLoaded(options.frameSrc, options.frameCount),
     ensureExportReady: () => ensureFramesLoaded(options.frameSrc, options.frameCount),
+    refreshToolPreview: () => refreshPreview(pickerApi.getHsv()),
   };
 }

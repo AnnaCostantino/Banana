@@ -51,10 +51,6 @@ export function serializeSelection(el, kind) {
       stickerSrc: readStickerSrc(el),
       placeScaleBoost: parseFloat(el.dataset.placeScaleBoost ?? "1"),
       jitter: el.dataset.jitter,
-      stickerTint: el.dataset.stickerTint,
-      stickerH: el.dataset.stickerH,
-      stickerS: el.dataset.stickerS,
-      stickerV: el.dataset.stickerV,
     };
   }
   if (kind === "shape") {

@@ -2,9 +2,8 @@ import { initShapes, deselectShape } from "./shapes.js";
 import { applyRotation, bindRotationHandle, createRotationHandle } from "./rotation.js";
 import { exportCollage } from "./export.js";
 import { initPosterColor } from "./poster-color.js";
-import { initBananaTints, applyBananaTintToElement, writeBananaHsv } from "./banana-color.js";
-import { initSelectionColorDock, clearSelectionColorDock, bindSelectionColorDock } from "./selection-color-dock.js";
-import { applyStickerTintToElement, initStickerTints } from "./sticker-color.js";
+import { initBananaColor } from "./banana-color.js";
+import { applyBananaTintToElement, writeBananaHsv } from "./banana-color.js";
 import { applyPasteOffset, serializeSelection } from "./copy-paste.js";
 import {
   applyBBox,
@@ -54,11 +53,8 @@ let bananaToolExpanded = false;
 let shapesApi = null;
 /** @type {ReturnType<typeof initPosterColor> | null} */
 let posterColorApi = null;
-/** @type {ReturnType<typeof initBananaTints> | null} */
+/** @type {ReturnType<typeof initBananaColor> | null} */
 let bananaColorApi = null;
-/** @type {ReturnType<typeof initSelectionColorDock> | null} */
-let selectionColorApi = null;
-const selectionColorDockEl = document.getElementById("selection-color-dock");
 /** @type {ReturnType<typeof serializeSelection> | null} */
 let collageClipboard = null;
 
@@ -145,12 +141,6 @@ function createStickerFromSnapshot(state) {
   wrapper.dataset.placeScaleBoost = String(state.placeScaleBoost ?? 1);
   wrapper.dataset.stickerSrc = state.stickerSrc;
   if (state.jitter != null) wrapper.dataset.jitter = String(state.jitter);
-  if (state.stickerTint === "1") {
-    wrapper.dataset.stickerTint = "1";
-    wrapper.dataset.stickerH = String(state.stickerH);
-    wrapper.dataset.stickerS = String(state.stickerS);
-    wrapper.dataset.stickerV = String(state.stickerV);
-  }
 
   const img = document.createElement("img");
   img.className = "placed-sticker-img";
@@ -170,7 +160,6 @@ function createStickerFromSnapshot(state) {
   applyStickerPose(wrapper, x, y);
   layerEl.appendChild(wrapper);
   bindPlacedBBox(wrapper);
-  applyStickerTintToElement(wrapper);
   return wrapper;
 }
 
@@ -328,25 +317,18 @@ function selectPlaced(el) {
   if (selectedPlaced) {
     selectedPlaced.classList.add("is-selected");
     selectedPlaced.focus({ preventScroll: true });
-  } else if (!shapesApi?.getSelectedShape?.()) {
-    clearSelectionColorDock();
   }
   if (isBananaPlaced(selectedPlaced)) {
-    bindSelectionColorDock("banana", selectedPlaced);
-  } else if (selectedPlaced?.classList.contains("placed-sticker")) {
-    bindSelectionColorDock("sticker", selectedPlaced);
-  } else if (!shapesApi?.getSelectedShape?.()) {
-    clearSelectionColorDock();
+    bananaColorApi?.onBananaSelectionChanged(selectedPlaced);
+  } else {
+    bananaColorApi?.onBananaSelectionChanged(null);
   }
   syncInlineUi();
 }
 
 function removePlaced(el) {
   if (!el) return;
-  if (selectedPlaced === el) {
-    selectedPlaced = null;
-    if (!shapesApi?.getSelectedShape?.()) clearSelectionColorDock();
-  }
+  if (selectedPlaced === el) selectedPlaced = null;
   clearBboxDragIf(el);
   el.remove();
   syncInlineUi();
@@ -430,11 +412,7 @@ function placeBanana(clientX, clientY, bruiseIndex = DEFAULT_BANANA_BRUISE) {
   applyBBox(wrapper);
   bananaLayerEl.appendChild(wrapper);
   bindPlacedBBox(wrapper);
-  bananaColorApi?.applyNewBanana(
-    wrapper,
-    bruiseIndex,
-    selectionColorApi?.readDefaultForNewBanana?.()
-  );
+  bananaColorApi?.applyNewBanana(wrapper, bruiseIndex);
   selectPlaced(wrapper);
   return wrapper;
 }
@@ -643,13 +621,11 @@ exportDownloadBtn?.addEventListener("click", async () => {
         selectPlaced(null);
         deselectShape();
         canvasEl.classList.add("is-exporting");
-        selectionColorDockEl?.classList.add("is-exporting");
         await posterColorApi?.ensureExportReady?.();
         await bananaColorApi?.ensureExportReady?.();
       },
       onRestore: () => {
         canvasEl.classList.remove("is-exporting");
-        selectionColorDockEl?.classList.remove("is-exporting");
       },
     });
   } catch (err) {
@@ -677,6 +653,7 @@ inlineEl?.addEventListener("pointerdown", (event) => {
 
 canvasEl.addEventListener("pointerdown", (event) => {
   if (event.target.closest(".placed-inline")) return;
+  if (event.target.closest(".shape-color-picker")) return;
   if (shapesApi?.onCanvasPointerDown(event.target)) return;
   if (
     event.target === canvasEl ||
@@ -687,7 +664,6 @@ canvasEl.addEventListener("pointerdown", (event) => {
   ) {
     selectPlaced(null);
     deselectShape();
-    clearSelectionColorDock();
   }
 });
 
@@ -695,6 +671,7 @@ window.addEventListener("resize", () => positionInlineControls());
 if (typeof ResizeObserver !== "undefined" && canvasEl) {
   const canvasResizeObserver = new ResizeObserver(() => {
     positionInlineControls();
+    shapesApi?.positionColorPicker?.();
   });
   canvasResizeObserver.observe(canvasEl);
 }
@@ -780,17 +757,19 @@ async function boot() {
     });
   }
 
-  bananaColorApi = initBananaTints({ frameSrc, frameCount: FRAME_COUNT });
-  initStickerTints();
-
-  selectionColorApi = initSelectionColorDock({
-    dockEl: selectionColorDockEl,
-    labelEl: document.getElementById("selection-color-dock-label"),
-    svEl: document.getElementById("selection-hsv-sv"),
-    hueEl: document.getElementById("selection-hsv-hue"),
-    svPointer: document.getElementById("selection-hsv-sv-pointer"),
-    huePointer: document.getElementById("selection-hsv-hue-pointer"),
-    resetBtn: document.getElementById("selection-color-reset"),
+  bananaColorApi = initBananaColor({
+    frameSrc,
+    frameCount: FRAME_COUNT,
+    defaultPreviewFrame: DEFAULT_BANANA_BRUISE,
+    getSelectedBanana: () => (isBananaPlaced(selectedPlaced) ? selectedPlaced : null),
+    previewEl: bananaToolPreview,
+    hintEl: document.getElementById("banana-color-hint"),
+    svEl: document.getElementById("banana-hsv-sv"),
+    hueEl: document.getElementById("banana-hsv-hue"),
+    svPointer: document.getElementById("banana-hsv-sv-pointer"),
+    huePointer: document.getElementById("banana-hsv-hue-pointer"),
+    resetBtn: document.getElementById("banana-color-reset"),
+    trayWrapEl: bananaTrayWrapEl,
     clamp,
   });
 
@@ -815,11 +794,12 @@ async function boot() {
     shapesToggleBtn: document.getElementById("shapes-toggle"),
     shapesTrayWrapEl: document.getElementById("shapes-tray-wrap"),
     shapesLibraryEl: document.getElementById("shape-library"),
+    colorPickerEl: document.getElementById("shape-color-picker"),
+    hsvSvEl: document.getElementById("hsv-sv"),
+    hsvHueEl: document.getElementById("hsv-hue"),
+    hsvSvPointer: document.getElementById("hsv-sv-pointer"),
+    hsvHuePointer: document.getElementById("hsv-hue-pointer"),
     clamp,
-    onShapeSelected: (shapeEl) => bindSelectionColorDock("shape", shapeEl),
-    onShapeDeselected: () => {
-      if (!selectedPlaced) clearSelectionColorDock();
-    },
     bindLibraryPlaceThumb,
     createRemoveButton,
     clearOtherSelection: () => selectPlaced(null),
