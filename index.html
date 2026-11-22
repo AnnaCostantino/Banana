@@ -62,23 +62,34 @@
               </button>
             </div>
           </div>
-          <div
-            class="shape-color-picker"
-            id="shape-color-picker"
-            role="group"
-            aria-label="Shape color"
-            hidden
-          >
-            <div class="hsv-sv" id="hsv-sv" tabindex="0" aria-label="Saturation and brightness">
-              <span class="hsv-sv-pointer" id="hsv-sv-pointer" aria-hidden="true"></span>
-            </div>
-            <div class="hsv-hue" id="hsv-hue" tabindex="0" aria-label="Hue">
-              <span class="hsv-hue-pointer" id="hsv-hue-pointer" aria-hidden="true"></span>
-            </div>
-          </div>
           </div>
         </div>
       </section>
+
+      <aside
+        class="selection-color-dock"
+        id="selection-color-dock"
+        aria-label="Selection color"
+        hidden
+      >
+        <h2 class="selection-color-dock-title" id="selection-color-dock-label">Color</h2>
+        <div class="selection-color-dock-picker color-picker-ref" role="group" aria-label="Selection color">
+          <div
+            class="hsv-sv"
+            id="selection-hsv-sv"
+            tabindex="0"
+            aria-label="Saturation and brightness"
+          >
+            <span class="hsv-sv-pointer" id="selection-hsv-sv-pointer" aria-hidden="true"></span>
+          </div>
+          <div class="hsv-hue" id="selection-hsv-hue" tabindex="0" aria-label="Hue">
+            <span class="hsv-hue-pointer" id="selection-hsv-hue-pointer" aria-hidden="true"></span>
+          </div>
+          <button type="button" class="selection-color-reset" id="selection-color-reset">
+            Reset color
+          </button>
+        </div>
+      </aside>
 
       <aside class="panel" aria-label="Controls">
         <section class="side-tool-panel is-collapsed" id="poster-color-panel">
@@ -145,30 +156,6 @@
                   draggable="false"
                 />
               </button>
-              <p class="banana-color-hint" id="banana-color-hint">
-                Select a banana on the poster to recolor it. Otherwise the picker sets color for the
-                next banana you place.
-              </p>
-              <div
-                class="banana-color-picker color-picker-ref"
-                role="group"
-                aria-label="Banana peel color"
-              >
-                <div
-                  class="hsv-sv"
-                  id="banana-hsv-sv"
-                  tabindex="0"
-                  aria-label="Banana saturation and brightness"
-                >
-                  <span class="hsv-sv-pointer" id="banana-hsv-sv-pointer" aria-hidden="true"></span>
-                </div>
-                <div class="hsv-hue" id="banana-hsv-hue" tabindex="0" aria-label="Banana hue">
-                  <span class="hsv-hue-pointer" id="banana-hsv-hue-pointer" aria-hidden="true"></span>
-                </div>
-                <button type="button" class="banana-color-reset" id="banana-color-reset">
-                  Reset yellow
-                </button>
-              </div>
             </div>
           </div>
         </section>
