@@ -2,6 +2,7 @@ import { initShapes, deselectShape } from "./shapes.js";
 import { applyRotation, bindRotationHandle, createRotationHandle } from "./rotation.js";
 import { exportCollage } from "./export.js";
 import { initPosterColor } from "./poster-color.js";
+import { initBananaColor } from "./banana-color.js";
 import {
   applyBBox,
   bindBBoxElement,
@@ -50,6 +51,8 @@ let bananaToolExpanded = false;
 let shapesApi = null;
 /** @type {ReturnType<typeof initPosterColor> | null} */
 let posterColorApi = null;
+/** @type {ReturnType<typeof initBananaColor> | null} */
+let bananaColorApi = null;
 
 function setSideToolExpanded(panelEl, trayWrapEl, toggleBtn, expanded, expandedFlagRef) {
   if (panelEl) {
@@ -107,8 +110,7 @@ function setBananaBruise(el, next) {
   if (!isBananaPlaced(el)) return;
   const index = Math.max(0, Math.min(FRAME_COUNT - 1, next));
   el.dataset.bruiseIndex = String(index);
-  const img = el.querySelector(".placed-banana-img");
-  if (img) img.src = frameSrc(index);
+  bananaColorApi?.onBruiseChange(el, index);
   syncInlineUi();
 }
 
@@ -182,6 +184,11 @@ function selectPlaced(el) {
   if (selectedPlaced) {
     selectedPlaced.classList.add("is-selected");
     selectedPlaced.focus({ preventScroll: true });
+  }
+  if (isBananaPlaced(selectedPlaced)) {
+    bananaColorApi?.onBananaSelectionChanged(selectedPlaced);
+  } else {
+    bananaColorApi?.onBananaSelectionChanged(null);
   }
   syncInlineUi();
 }
@@ -258,7 +265,6 @@ function placeBanana(clientX, clientY, bruiseIndex = DEFAULT_BANANA_BRUISE) {
 
   const img = document.createElement("img");
   img.className = "placed-banana-img";
-  img.src = frameSrc(bruiseIndex);
   img.alt = "Placed banana";
   img.draggable = false;
   img.width = 1512;
@@ -273,6 +279,7 @@ function placeBanana(clientX, clientY, bruiseIndex = DEFAULT_BANANA_BRUISE) {
   applyBBox(wrapper);
   bananaLayerEl.appendChild(wrapper);
   bindPlacedBBox(wrapper);
+  bananaColorApi?.applyNewBanana(wrapper, bruiseIndex);
   selectPlaced(wrapper);
   return wrapper;
 }
@@ -481,6 +488,7 @@ exportDownloadBtn?.addEventListener("click", async () => {
         deselectShape();
         canvasEl.classList.add("is-exporting");
         await posterColorApi?.ensureExportReady?.();
+        await bananaColorApi?.ensureExportReady?.();
       },
       onRestore: () => {
         canvasEl.classList.remove("is-exporting");
@@ -605,6 +613,22 @@ async function boot() {
       placeBanana(clientX, clientY, DEFAULT_BANANA_BRUISE);
     });
   }
+
+  bananaColorApi = initBananaColor({
+    frameSrc,
+    frameCount: FRAME_COUNT,
+    defaultPreviewFrame: DEFAULT_BANANA_BRUISE,
+    getSelectedBanana: () => (isBananaPlaced(selectedPlaced) ? selectedPlaced : null),
+    previewEl: bananaToolPreview,
+    hintEl: document.getElementById("banana-color-hint"),
+    svEl: document.getElementById("banana-hsv-sv"),
+    hueEl: document.getElementById("banana-hsv-hue"),
+    svPointer: document.getElementById("banana-hsv-sv-pointer"),
+    huePointer: document.getElementById("banana-hsv-hue-pointer"),
+    resetBtn: document.getElementById("banana-color-reset"),
+    trayWrapEl: bananaTrayWrapEl,
+    clamp,
+  });
 
   posterColorApi = initPosterColor({
     textureEl,

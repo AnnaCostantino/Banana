@@ -145,6 +145,30 @@
                   draggable="false"
                 />
               </button>
+              <p class="banana-color-hint" id="banana-color-hint">
+                Select a banana on the poster to recolor it. Otherwise the picker sets color for the
+                next banana you place.
+              </p>
+              <div
+                class="banana-color-picker color-picker-ref"
+                role="group"
+                aria-label="Banana peel color"
+              >
+                <div
+                  class="hsv-sv"
+                  id="banana-hsv-sv"
+                  tabindex="0"
+                  aria-label="Banana saturation and brightness"
+                >
+                  <span class="hsv-sv-pointer" id="banana-hsv-sv-pointer" aria-hidden="true"></span>
+                </div>
+                <div class="hsv-hue" id="banana-hsv-hue" tabindex="0" aria-label="Banana hue">
+                  <span class="hsv-hue-pointer" id="banana-hsv-hue-pointer" aria-hidden="true"></span>
+                </div>
+                <button type="button" class="banana-color-reset" id="banana-color-reset">
+                  Reset yellow
+                </button>
+              </div>
             </div>
           </div>
         </section>
