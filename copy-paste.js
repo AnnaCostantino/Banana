@@ -1,5 +1,6 @@
 import { rotationFor } from "./rotation.js";
 import { parseBananaHsv } from "./banana-color.js";
+import { parseStickerHsv, stickerUsesCustomTint } from "./sticker-color.js";
 
 export const PASTE_OFFSET_PX = 16;
 
@@ -45,13 +46,21 @@ export function serializeSelection(el, kind) {
     };
   }
   if (kind === "sticker") {
-    return {
+    const sticker = {
       ...base,
       aspect: el.dataset.aspect,
       stickerSrc: readStickerSrc(el),
       placeScaleBoost: parseFloat(el.dataset.placeScaleBoost ?? "1"),
       jitter: el.dataset.jitter,
     };
+    if (stickerUsesCustomTint(el)) {
+      const hsv = parseStickerHsv(el);
+      sticker.stickerTint = "1";
+      sticker.stickerH = hsv.h;
+      sticker.stickerS = hsv.s;
+      sticker.stickerV = hsv.v;
+    }
+    return sticker;
   }
   if (kind === "shape") {
     return {
